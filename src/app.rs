@@ -51,6 +51,10 @@ impl App {
         cursor::set_all(&custom_cursor);
     }
 
+    pub fn deactivate(&self) {
+        cursor::reset();
+    }
+
     pub fn xterminate(&self) {
         // Terminate process under the cursor and reset
         // the system cursors back to the default ones.
@@ -85,6 +89,13 @@ impl App {
                     self.appstate = AppState::Sleeping;
                     self.xterminate();
                     println!(" Success!");
+
+                    return true;
+                } else if state.pressed(KeyCode::Escape) {
+                    printfl!("Aborted.");
+                    self.appstate = AppState::Sleeping;
+                    self.deactivate();
+
                     return true;
                 }
             }
