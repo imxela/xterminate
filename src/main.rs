@@ -4,13 +4,10 @@ pub mod process;
 pub mod window;
 pub mod cursor;
 
-#[macro_use]
-extern crate lazy_static;
-
 macro_rules! printfl {
     ($($arg:tt)*) => {
         use std::io::Write;
-        
+
         print!("{}", format_args!($($arg)*));
         std::io::stdout().flush().unwrap();
     };

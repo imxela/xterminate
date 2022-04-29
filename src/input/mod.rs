@@ -68,14 +68,8 @@ use windows::Win32::Devices::HumanInterfaceDevice::{
 };
 
 use std::collections::HashMap;
-use std::sync::Mutex;
 
-lazy_static! {
-    // Todo: Can probably make this a normal static instead of a
-    //       mutex since the application won't be multi-threaded anyway
-    static ref KEYS: Mutex<HashMap<KeyCode, KeyStatus>> = Mutex::new(HashMap::new());
-}
-
+static mut KEYS: Option<HashMap<KeyCode, KeyStatus>> = None;
 static mut INSTANCE: Option<Input> = None;
 
 pub struct KeyState {
@@ -87,7 +81,7 @@ impl KeyState {
     }
 
     pub fn get(&self, keycode: KeyCode) -> KeyStatus {
-        *KEYS.lock().unwrap().entry(keycode).or_insert(KeyStatus::Released)
+        get_key_state(keycode)
     }
 
     pub fn released(&self, keycode: KeyCode) -> bool {
@@ -133,6 +127,8 @@ impl Input {
             std::ptr::null()
         );
 
+        KEYS = Some(HashMap::new());
+
         let mut message = MSG::default();
         while GetMessageA(&mut message, hwnd, 0, 0).as_bool() {
             TranslateMessage(&message);
@@ -149,9 +145,13 @@ impl Input {
     }
 }
 
-fn set_key_state(keycode: KeyCode, keystatus: KeyStatus) {
-    *KEYS.lock().unwrap().entry(keycode).or_insert(keystatus) = keystatus;
-}
+fn set_key_state(keycode: KeyCode, keystatus: KeyStatus) { unsafe {
+    *KEYS.as_mut().unwrap().entry(keycode).or_insert(keystatus) = keystatus;
+} }
+
+fn get_key_state(keycode: KeyCode) -> KeyStatus { unsafe {
+    *KEYS.as_mut().unwrap().entry(keycode).or_insert(KeyStatus::Released)
+} }
 
 fn process_keyboard_input(keyboard: &RAWKEYBOARD) -> Option<(KeyCode, KeyStatus)> {
     // Maps the scancode to a virtual keycode that differentiates between left/right
