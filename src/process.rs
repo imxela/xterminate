@@ -8,8 +8,6 @@ pub struct Process {
 
 impl Process {
     pub fn open(pid : u32) -> Self {
-        println!("pid: {}", pid);
-
         let handle = unsafe {
             OpenProcess(PROCESS_TERMINATE, false, pid)
         };
