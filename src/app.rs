@@ -3,6 +3,8 @@ use crate::cursor;
 use crate::cursor::Cursor;
 use crate::window::Window;
 
+use crate::printfl;
+
 static mut SINGLETON: Option<App> = None;
 
 /// The path to the cursor file relative to the executable's working directory
@@ -39,6 +41,7 @@ impl App {
     
     // Todo: Should return a Result<(), Error>
     pub fn run(&mut self) {
+        println!("Running!");
         Input::poll(Self::on_keystate_changed);
     }
 
@@ -66,16 +69,22 @@ impl App {
                 if state.pressed(KeyCode::LeftControl) &&
                    state.pressed(KeyCode::LeftAlt) &&
                    state.pressed(KeyCode::End) {
+                       println!("Activated!");
+                       printfl!("Waiting for trigger...");
                        self.appstate = AppState::Active;
                        self.activate();
+
                        return true;
                 }
             },
 
             AppState::Active => {
                 if state.pressed(KeyCode::LeftMouseButton) {
+                    println!(" Triggered!");
+                    printfl!("Terminating...");
                     self.appstate = AppState::Sleeping;
                     self.xterminate();
+                    println!(" Success!");
                     return true;
                 }
             }
