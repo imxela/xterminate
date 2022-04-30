@@ -69,7 +69,7 @@ pub enum CursorType {
 pub fn position() -> (i32, i32) {
     let mut pos = POINT::default();
     if unsafe { !GetCursorPos(&mut pos).as_bool() } {
-        return (-1, -1) // Todo: Error handling using GetLastError()
+        return (-1, -1) // Todo: Error handling
     }
 
     (pos.x, pos.y)
@@ -134,7 +134,7 @@ pub fn set(cursor_type: CursorType, cursor: &Cursor) {
 
     if !success {
         panic!("handle this (code {})", unsafe { GetLastError().0 });
-        // Todo: Handle error using GetLastError()
+        // Todo: Handle error
     }
 }
 
@@ -157,7 +157,7 @@ pub fn set_all(cursor: &Cursor) {
     set(CursorType::Wait, &cursor.copy());
 }
 
-// Resets system cursor to Windows default cursors
+// Resets system cursors to Windows the user-defined cursors
 pub fn reset() {
     let success = unsafe {
         SystemParametersInfoA(SPI_SETCURSORS, 0, std::ptr::null_mut(), SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0)).as_bool()

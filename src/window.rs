@@ -14,7 +14,7 @@ impl Window {
         };
 
         if hwnd.0 == 0 {
-            // Todo: Return error result? 0 is an invalid HWND value
+            // Todo: Handle error
         }
 
         Self {

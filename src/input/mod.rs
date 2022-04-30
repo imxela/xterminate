@@ -100,7 +100,7 @@ pub struct Input {
 impl Input {
     pub fn poll(callback: fn(&mut crate::app::App, KeyState, KeyCode, KeyStatus) -> bool) { unsafe {
         let mut wndclass = WNDCLASSA::default();
-        wndclass.hInstance = GetModuleHandleA(PCSTR(std::ptr::null())); // Equivalent to the hInstance parameter passed to WinMain
+        wndclass.hInstance = GetModuleHandleA(PCSTR(std::ptr::null())); // Equivalent to the hInstance parameter passed to WinMain in C/C++
         wndclass.lpszClassName = PCSTR(String::from("xterminatorwcname").as_mut_ptr());
         wndclass.lpfnWndProc = Some(raw_input_callback);
         
@@ -254,8 +254,8 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
 
             if keystate.is_none() {
                 // Unsupported KeyStatus or KeyCode
-                // the application does not care about,
-                // pass on message and do nothing.
+                // the application does not care about.
+                // Pass on message and do nothing.
                 return DefWindowProcA(hwnd, msg, wparam, lparam);
             }
 
@@ -265,13 +265,11 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
             // Callback determines whether the input message
             // should be consumed or not via its return value.
             // If true, return LRESULT of value 0 to indicate so.
-            // Otherwise, simply pass the input on.
             let should_consume = (Input::instance().as_ref().unwrap().callback)(&mut *crate::app::App::instance(), KeyState::new(), keycode, keystatus);
             if should_consume {
                 return LRESULT(0);
             }
 
-            // Otherwise, pass it on
             return DefWindowProcA(hwnd, msg, wparam, lparam);
         }
 

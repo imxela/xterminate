@@ -39,7 +39,6 @@ impl App {
         }
     } }
     
-    // Todo: Should return a Result<(), Error>
     pub fn run(&mut self) {
         println!("Running!");
         Input::poll(Self::on_keystate_changed);

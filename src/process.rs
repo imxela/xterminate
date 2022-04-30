@@ -12,7 +12,7 @@ impl Process {
             OpenProcess(PROCESS_TERMINATE, false, pid)
         };
 
-        let handle = handle.expect(format!("OpenProcess failed, code: {}", unsafe { GetLastError().0 }).as_str()).0; // Todo: Handle this error properly (map to custom error type?)
+        let handle = handle.expect(format!("OpenProcess failed, code: {}", unsafe { GetLastError().0 }).as_str()).0; // Todo: Handle this error
 
         Self {
             id: pid,
