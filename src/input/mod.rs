@@ -12,6 +12,7 @@ use windows::Win32::UI::Input::{
     RIDEV_INPUTSINK,
     RIDEV_NOLEGACY,
     RID_INPUT,
+    RIDEV_REMOVE,
     
     RegisterRawInputDevices,
     GetRawInputData
@@ -126,6 +127,10 @@ impl Input {
             wndclass.hInstance,
             std::ptr::null()
         );
+
+        if hwnd.0 == 0 {
+            panic!("window creation failed: CreateWindowExA() returned NULL (os error code {})", GetLastError().0);
+        }
 
         KEYS = Some(HashMap::new());
 
@@ -277,5 +282,31 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
             // Any other message kind can be ignored and passed on
             return DefWindowProcA(hwnd, msg, wparam, lparam);
         }
+    }
+}
+
+/// This should not be called manually as the application
+/// unregisters by itself. This is only ever called if the
+/// application panics in order to switch to the system-
+/// default message handling.
+pub fn unregister() {
+    let mut devices = [RAWINPUTDEVICE::default(); 2];
+
+    let keyboard_device = &mut devices[0];
+    keyboard_device.dwFlags = RIDEV_REMOVE;
+    keyboard_device.usUsagePage = HID_USAGE_PAGE_GENERIC;
+    keyboard_device.usUsage = HID_USAGE_GENERIC_KEYBOARD;
+    keyboard_device.hwndTarget = HWND(0);
+    
+
+    let mouse_device = &mut devices[1];
+    mouse_device.dwFlags = RIDEV_REMOVE;
+    mouse_device.usUsagePage = HID_USAGE_PAGE_GENERIC;
+    mouse_device.usUsage = HID_USAGE_GENERIC_MOUSE;
+    mouse_device.hwndTarget = HWND(0);
+
+    unsafe {
+        RegisterRawInputDevices(&devices, std::mem::size_of::<RAWINPUTDEVICE>() as u32)
+        .expect(format!("RegisterRawInputDevices() failed: {}", GetLastError().0).as_str());
     }
 }

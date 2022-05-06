@@ -1,4 +1,5 @@
 pub mod app;
+pub mod error;
 pub mod input;
 pub mod process;
 pub mod window;
@@ -18,6 +19,8 @@ pub(crate) use printfl;
 use app::App;
 
 fn main() {
+    error::set_panic_hook();
+
     let app = App::instance();
     app.run();
 }
