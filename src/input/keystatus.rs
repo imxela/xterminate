@@ -29,6 +29,9 @@ pub enum KeyStatus {
 }
 
 impl KeyStatus {
+    /// Converts a Windows API window-message `WM_XXX` value to the 
+    /// equivalent  [KeyStatus]. Passing unsupported `WM_XXX` values
+    /// (i.e. ones that are not used in xterminate) will return `None`.
     pub fn from_wm(window_message: u32) -> Option<KeyStatus> {
         match window_message {
             WM_KEYDOWN | WM_SYSKEYDOWN => Some(KeyStatus::Pressed),
@@ -37,28 +40,9 @@ impl KeyStatus {
         }
     }
 
-    /// Hardcoded values taken from Windows docs, see field 'DUMMYUNIONNAME.DUMMYSTRUCTNAME.usButtonFlags':
-    /// https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawmouse
-    ///
-    /// Currently only implements conversions for KeyCodes used
-    /// by xterminator, all other RI_ values return a 'None' value.
-    /// 
-    /// Converts from a Windows API virtual key-code (`VK_XXX`) to an xterminate [KeyCode].
-    /// 
-    /// Hardcoded values taken directly from Windows docs:
-    /// https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes.
-    /// 
-    /// Currently only implements conversions for KeyCodes used by
-    /// xterminator (see [KeyCode]). All other `VK_XXX` values return `None`.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `vkey` - The Windows virtual key-code (`VK_XXX`) to convert from
-    /// 
-    /// # Returns
-    /// 
-    /// The [KeyCode] equivalent to the specified Windows virtual key-code or
-    /// `None` if the specified virtual key-code is not implemented by xterminator (see [KeyCode]).
+    /// Converts a Windows API raw-input message `RI_XXX` value to the 
+    /// equivalent  [KeyStatus]. Passing unsupported `RI_XXX` values
+    /// (i.e. ones that are not used in xterminate) will return `None`.
     pub fn from_ri(ri: u32) -> Option<KeyStatus> {
         match ri {
             RI_MOUSE_BUTTON_1_DOWN => Some(KeyStatus::Pressed),

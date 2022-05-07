@@ -99,6 +99,15 @@ pub struct Input {
 }
 
 impl Input {
+    /// Responsible for creating the message-only window and handling the raw input message loop.
+    /// 
+    /// ## Notes 
+    /// 
+    /// This method is blocking.
+    /// 
+    /// ## Arguments
+    /// 
+    /// - `callback` - The callback to receive processed raw-input key and mouse events
     pub fn poll(callback: fn(&mut crate::app::App, KeyState, KeyCode, KeyStatus) -> bool) { unsafe {
         let mut wndclass = WNDCLASSA::default();
         wndclass.hInstance = GetModuleHandleA(PCSTR(std::ptr::null())); // Equivalent to the hInstance parameter passed to WinMain in C/C++
@@ -158,6 +167,7 @@ fn get_key_state(keycode: KeyCode) -> KeyStatus { unsafe {
     *KEYS.as_mut().unwrap().entry(keycode).or_insert(KeyStatus::Released)
 } }
 
+/// Processes raw mouse input (`RAWKEYBOARD`) into a universal `KeyStatus`.
 fn process_keyboard_input(keyboard: &RAWKEYBOARD) -> Option<(KeyCode, KeyStatus)> {
     // Maps the scancode to a virtual keycode that differentiates between left/right
     // versions of certain keys (such as L/R control, shift, alt, etc). The VKey value in
@@ -171,6 +181,7 @@ fn process_keyboard_input(keyboard: &RAWKEYBOARD) -> Option<(KeyCode, KeyStatus)
     Some((keycode, keystatus))
 }
 
+/// Processes raw mouse input (`RAWMOUSE`) into a universal `KeyStatus`.
 fn process_mouse_input(mouse: &RAWMOUSE) -> Option<(KeyCode, KeyStatus)> {
     let ri = unsafe { mouse.Anonymous.Anonymous.usButtonFlags };
 
@@ -180,6 +191,7 @@ fn process_mouse_input(mouse: &RAWMOUSE) -> Option<(KeyCode, KeyStatus)> {
     Some((keycode, keystatus))
 }
 
+/// This callback handles everything related to the Windows raw input API except the windowing which is handled by `Input::poll(...)`.
 unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
         WM_CREATE => {
@@ -252,7 +264,6 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
                 _ => {
                     // Should (knock on wood) be impossible since 'dwType' can only
                     // be any of the above three values acording to Windows docs
-                    // Todo: Handle this error
                     panic!("unexpected branching: 'RAWINPUT::header::dwType' contains a value that is not 'RIM_TYPEKEYBOARD', 'RIM_TYPEMOUSE' or 'RIM_TYPEHID'");
                 }
             }

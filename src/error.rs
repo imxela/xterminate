@@ -50,7 +50,7 @@ pub fn set_panic_hook() {
 fn on_panic(info: &std::panic::PanicInfo) {
     // Ensures that the MessageBox events are not captured
     // by the application since it's in the middle of a panic
-    // and would not be able to process them
+    // and isn't able to process them
     input::unregister();
 
     let message: String;
@@ -61,7 +61,15 @@ fn on_panic(info: &std::panic::PanicInfo) {
         },
 
         None => {
-            message = format!("An unexpected error ocurred but no additional error information was supplied.\n\nPanic Information:\n\n{:#?}\n\nSorry. :(", info);
+            match info.payload().downcast_ref::<&str>() {
+                Some(panic_str) => {
+                    message = format!("Unexpected error: {}.\n\nPanic Information:\n\n{:#?}\n\nSorry. :(", panic_str, info);
+                },
+        
+                None => {
+                    message = format!("An unexpected error ocurred but no additional error information was supplied.\n\nPanic Information:\n\n{:#?}\n\nSorry. :(", info);
+                }
+            }
         }
     }
 

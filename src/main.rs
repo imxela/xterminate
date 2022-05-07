@@ -5,6 +5,7 @@ pub mod process;
 pub mod window;
 pub mod cursor;
 
+/// Flushed `print!()` macro
 macro_rules! printfl {
     ($($arg:tt)*) => {
         use std::io::Write;

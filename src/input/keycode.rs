@@ -30,21 +30,9 @@ pub enum KeyCode {
 }
 
 impl KeyCode {
-    /// Converts from a Windows virtual key-code (`VK_XXX`) to a [KeyCode].
-    /// 
-    /// Currently only implements conversions for KeyCodes used by
-    /// xterminator (see [KeyCode]). All other `VK_XXX` values return `None`.
-    /// 
-    /// For more information about virtual key-codes, refer to the [Windows API documentation](https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes).
-    /// 
-    /// # Arguments
-    /// 
-    /// * `vkey` - The Windows virtual key-code (`VK_XXX`) to convert from
-    /// 
-    /// # Returns
-    /// 
-    /// The [KeyCode] equivalent to the specified Windows virtual key-code or
-    /// `None` if the specified virtual key-code is not implemented by xterminator (see [KeyCode]).
+    /// Converts a Windows API virtual key-code `VK_XXX` value to the 
+    /// equivalent [KeyCode]. Passing unsupported `VK_XXX` values
+    /// (i.e. ones that are not used in xterminate) will return `None`.
     pub fn from_vkey(vkey: u16) -> Option<KeyCode> {
         match VIRTUAL_KEY(vkey) {
             // Keyboard
@@ -62,22 +50,9 @@ impl KeyCode {
         }
     }
 
-    /// Converts a Windows `RAWMOUSE::DUMMYUNIONNAME.DUMMYSTRUCTNAME.usButtonFlags`
-    /// flag to a [KeyCode].
-    /// 
-    /// Currently only implements conversions for KeyCodes used by
-    /// xterminator (see [KeyCode]). All other `RI_XXX` values return `None`.
-    /// 
-    /// For information about `usButtonFlags`, refer to the [Windows API documentation](https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawmouse).
-    /// 
-    /// # Arguments
-    /// 
-    /// * `ri` - The Windows `RAWMOUSE::DUMMYUNIONNAME.DUMMYSTRUCTNAME.usButtonFlags` flag to convert from
-    /// 
-    /// # Returns
-    /// 
-    /// The [KeyCode] equivalent to the specified Windows `RAWMOUSE::DUMMYUNIONNAME.DUMMYSTRUCTNAME.usButtonFlags` 
-    /// or `None` if the specified flag is not implemented by xterminator (see [KeyCode]).
+    /// Converts a Windows API raw-input message `RI_XXX` value to the 
+    /// equivalent [KeyCode]. Passing unsupported `RI_XXX` values
+    /// (i.e. ones that are not used in xterminate) will return `None`.
     pub fn from_ri(ri: u32) -> Option<KeyCode> {
         match ri {
             RI_MOUSE_BUTTON_1_DOWN => Some(KeyCode::LeftMouseButton),

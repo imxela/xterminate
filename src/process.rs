@@ -7,26 +7,34 @@ pub struct Process {
 }
 
 impl Process {
+    /// Opens the process with the specified PID and returns a [Process].
+    /// 
+    /// ## Panics
+    /// 
+    /// This function panics if the internal call to `OpenProcess()` returns a [HANDLE] of value `0`.
     pub fn open(pid : u32) -> Self {
         let handle = unsafe {
             OpenProcess(PROCESS_TERMINATE, false, pid)
-        };
-
-        let handle = handle.expect(format!("OpenProcess failed, code: {}", unsafe { GetLastError().0 }).as_str()).0; // Todo: Handle this error
+        }.expect(format!("failed to open target process ({}) (system error {})", pid, unsafe { GetLastError().0 }).as_str());
 
         Self {
             id: pid,
-            handle
+            handle: handle.0
         }
     }
 
+    /// Terminates the `self` process.
+    /// 
+    /// ## Panics
+    /// 
+    /// This method panics if the internal call to `TerminateProcess()` returns ´false´.
     pub fn terminate(&self) {
         let success = unsafe { 
             TerminateProcess(HANDLE { 0: self.handle }, ERROR_APP_HANG.0).as_bool()
         };
 
         if !success {
-            // Todo: Handle this error
+            panic!("{}", format!("failed to terminate target process ({}) (system error {})", self.id(), unsafe { GetLastError().0 }));
         }
     }
 

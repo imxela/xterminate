@@ -21,6 +21,7 @@ pub struct App {
 }
 
 impl App {
+    /// Creates a new singleton instance of `App` and returns it.
     fn new() -> &'static mut Self { unsafe {
         SINGLETON = Some(Self {
             appstate: AppState::Sleeping,
@@ -30,7 +31,7 @@ impl App {
         SINGLETON.as_mut().unwrap()
     } }
 
-    /// Retreives the singleton instance of App. If one
+    /// Retrieves the singleton instance of App. If one
     /// does not already exist, a new one is created and returned. 
     pub fn instance() -> &'static mut Self { unsafe {
         match SINGLETON.as_mut() {
@@ -39,36 +40,70 @@ impl App {
         }
     } }
     
+    /// Runs xterminate
     pub fn run(&mut self) {
         println!("Running!");
-        Input::poll(Self::on_keystate_changed);
+        Input::poll(Self::on_keystate_changed)
     }
 
+    /// Called when going from `AppState::Sleeping` to `ÀppState::Active`.
+    /// Sets the system cursors to the xterminate cursor.
     pub fn activate(&self) {
         // Customize the system cursors to signify that xterminate is active
-        let custom_cursor = Cursor::load(self.cursor_path.as_str());
+        let custom_cursor: Cursor;
+
+        if let Ok(v) = Cursor::load_from_file(self.cursor_path.as_str()) {
+            custom_cursor = v;
+        } else {
+            // This should only run if the cursor located in the
+            // executable's root directory is faulty or missing.
+            // If this happens we notify the user by message dialog
+            // and ask if they want to reset it or temporarily
+            // use the default one.
+
+            // Todo: Replace absolute path!
+            // let cursor_data = include_bytes!("C:/Projects/xterminate/target/debug/data/cursor.cur");
+            // let cursor_data = cursor_data.to_vec();
+            // custom_cursor = Cursor::load_from_memory(&cursor_data).expect(format!("failed to load default cursor from memory").as_str());
+
+            panic!("failed to load cursor from memory - try reinstalling xterminate if the issue persists");
+        }
+
         cursor::set_all(&custom_cursor);
     }
 
+    /// Called if the user presses the escape key while in the `AppState::Active` state.
+    /// Resets the cursor back to system defaults.
     pub fn deactivate(&self) {
         cursor::reset();
     }
 
-    pub fn xterminate(&self) {
+    /// Called when the left mouse button is clicked while in the `AppState::Active` state.
+    /// Runs the termination procedure and returns true on success or
+    /// false if no window is located under the cursor.
+    pub fn xterminate(&self) -> bool {
         // Terminate process under the cursor and reset
         // the system cursors back to the default ones.
         cursor::reset();
 
         let (cursor_x, cursor_y) = cursor::position();
-        let target_window = Window::from_point(cursor_x, cursor_y);
+        let target_window = match Window::from_point(cursor_x, cursor_y) {
+            Some(v) => v,
+            None => return false
+        };
+
         let target_process = target_window.process();
 
         target_process.terminate();
+
+        true
     }
 
+    /// Callback invoked by the `Input` struct when the keystate changes.
+    /// Responsible for transitioning between different states.
     fn on_keystate_changed(&mut self, state: KeyState, _keycode: KeyCode, _keystatus: KeyStatus) -> bool {
         match self.appstate {
-            AppState::Sleeping => {
+            AppState::Sleeping => { 
                 if state.pressed(KeyCode::LeftControl) &&
                    state.pressed(KeyCode::LeftAlt) &&
                    state.pressed(KeyCode::End) {
@@ -85,10 +120,13 @@ impl App {
                 if state.pressed(KeyCode::LeftMouseButton) {
                     println!(" Triggered!");
                     printfl!("Terminating...");
-                    self.appstate = AppState::Sleeping;
-                    self.xterminate();
-                    println!(" Success!");
+                    if !self.xterminate() {
+                        println!(" Failed (no window at mouse position, trying again)");
+                        return false;
+                    }
 
+                    println!(" Success!");
+                    self.appstate = AppState::Sleeping;
                     return true;
                 } else if state.pressed(KeyCode::Escape) {
                     printfl!("Aborted.");
@@ -104,6 +142,7 @@ impl App {
     }
 }
 
+/// Returns the absolute path of the cursor file.
 fn get_cursor_path() -> String {
     let rel_cursor_path = std::path::PathBuf::from(CURSOR_FILENAME);
     let mut abs_cursor_path = std::env::current_exe().expect("failed to retrieve path to executable");

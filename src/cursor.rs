@@ -7,6 +7,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CopyImage,
     SetSystemCursor,
     SystemParametersInfoA,
+    CreateIconFromResource,
 
     SYSTEM_CURSOR_ID,
     HCURSOR,
@@ -49,6 +50,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     IDC_WAIT,
 };
 
+use crate::error::{AppError, AppResult};
+
 pub enum CursorType {
     AppStarting,
     Normal,
@@ -66,10 +69,15 @@ pub enum CursorType {
     Wait
 }
 
+/// Returns the position of the cursor.
+/// 
+/// ## Panics
+/// 
+/// This function panics if the internal call to `GetCursorPos()` returns `false`.
 pub fn position() -> (i32, i32) {
     let mut pos = POINT::default();
     if unsafe { !GetCursorPos(&mut pos).as_bool() } {
-        return (-1, -1) // Todo: Error handling
+        panic!("failed to retrieve cursor position (system error {})", unsafe { GetLastError().0 });
     }
 
     (pos.x, pos.y)
@@ -90,15 +98,15 @@ impl Cursor {
                 0,
                 0,
                 LR_SHARED,
-            ).expect(format!("handle this error (code {})", GetLastError().0).as_str())
-        };
+            )
+        }.expect(format!("failed to load system cursor (system error {})", unsafe { GetLastError().0 }).as_str());
 
-        Self {
-            handle: hcursor.0
-        }
+        Self { handle: hcursor.0 }
     }
 
-    pub fn load(filename: &str) -> Self {
+    /// Loads a cursor from the specified file. If the file does not exist
+    /// or is not a valid cursor file, this method returns an `Err(...)`.
+    pub fn load_from_file(filename: &str) -> AppResult<Self> {
         let hcursor = unsafe {
             LoadImageA(
                 HINSTANCE { 0: 0 }, 
@@ -107,18 +115,37 @@ impl Cursor {
                 0, 
                 0, 
                 LR_LOADFROMFILE
-            ).expect("handle this error")
+            )
         };
 
-        Self {
-            handle: hcursor.0
+        match hcursor {
+            Ok(v) => Ok(Self { handle: v.0 }),
+            Err(e) => Err(AppError::new("failed to load cursor from file", unsafe { Some(GetLastError().0 as usize) }, Some(Box::new(e))))
         }
     }
 
+    /// Loads a cursor from the specified [Vec]. If `data` does not contain
+    /// valid binary for a cursor, this method returns an `Err(...)`.
+    pub fn load_from_memory(data: &Vec<u8>) -> AppResult<Self> {
+        let hcursor = unsafe {
+            CreateIconFromResource(data.as_ptr(), data.len() as u32, false, 0x00030000)
+        };
+
+        match hcursor {
+            Ok(v) => Ok(Self { handle: v.0 }),
+            Err(e) => Err(AppError::new("failed to load cursor from memory", unsafe { Some(GetLastError().0 as usize) }, Some(Box::new(e))))
+        }
+    }
+
+    /// Creates a copy of the `self` cursor and returns it.
+    /// 
+    /// ## Panics
+    /// 
+    /// This method panics if the internal call to `CopyImage()` returns a [HANDLE] of value `0`.
     pub fn copy(&self) -> Self {
         let cpy = unsafe {
             CopyImage(HANDLE(self.handle), IMAGE_CURSOR, 0, 0, IMAGE_FLAGS(0))
-        }.expect("handle this error");
+        }.expect(format!("failed to copy image cursor (system error {})", unsafe { GetLastError().0 }).as_str());
 
         Self {
             handle: cpy.0
@@ -127,14 +154,17 @@ impl Cursor {
 }
 
 /// Sets the system cursor for the specified cursor type
+/// 
+/// ## Panics
+/// 
+/// This function panics if the internal call to `SetSystemCursor()` returns `false`.
 pub fn set(cursor_type: CursorType, cursor: &Cursor) {
     let success = unsafe {
         SetSystemCursor(HCURSOR(cursor.handle), get_ocr(cursor_type)).as_bool()
     };
 
     if !success {
-        panic!("handle this (code {})", unsafe { GetLastError().0 });
-        // Todo: Handle error
+        panic!("{}", format!("failed to set system cursor: SetSystemCursor returned 0 (system error {:#08x})", unsafe { GetLastError().0 }));
     }
 }
 
@@ -157,17 +187,22 @@ pub fn set_all(cursor: &Cursor) {
     set(CursorType::Wait, &cursor.copy());
 }
 
-// Resets system cursors to Windows the user-defined cursors
+/// Resets system cursors to Windows the user-defined cursors
+/// 
+/// ## Panics
+/// 
+/// This function panics if the internal call to `SystemParametersInfoA()` returns `false`.
 pub fn reset() {
     let success = unsafe {
         SystemParametersInfoA(SPI_SETCURSORS, 0, std::ptr::null_mut(), SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0)).as_bool()
     };
 
     if !success {
-        panic!("handle this error: failed to reset system cursor, code {}", unsafe { GetLastError().0 });
+        panic!("failed to reset system cursor: SystemPerametersInfoA returned 0 (system error {:#08x})", unsafe { GetLastError().0 });
     }
 }
 
+/// Converts a [CursorType] to a Windows `OCR_XXX` value.
 fn get_ocr(cursor_type: CursorType) -> SYSTEM_CURSOR_ID {
     match cursor_type {
         CursorType::AppStarting => OCR_APPSTARTING,
@@ -187,6 +222,8 @@ fn get_ocr(cursor_type: CursorType) -> SYSTEM_CURSOR_ID {
     }
 }
 
+
+/// Converts a [CursorType] to a Windows `IDC_XXX` value.
 fn get_idc(cursor_type: CursorType) -> PCWSTR {
     match cursor_type {
         CursorType::AppStarting => IDC_APPSTARTING,
