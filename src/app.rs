@@ -50,25 +50,7 @@ impl App {
     /// Sets the system cursors to the xterminate cursor.
     pub fn activate(&self) {
         // Customize the system cursors to signify that xterminate is active
-        let custom_cursor: Cursor;
-
-        if let Ok(v) = Cursor::load_from_file(self.cursor_path.as_str()) {
-            custom_cursor = v;
-        } else {
-            // This should only run if the cursor located in the
-            // executable's root directory is faulty or missing.
-            // If this happens we notify the user by message dialog
-            // and ask if they want to reset it or temporarily
-            // use the default one.
-
-            // Todo: Replace absolute path!
-            // let cursor_data = include_bytes!("C:/Projects/xterminate/target/debug/data/cursor.cur");
-            // let cursor_data = cursor_data.to_vec();
-            // custom_cursor = Cursor::load_from_memory(&cursor_data).expect(format!("failed to load default cursor from memory").as_str());
-
-            panic!("failed to load cursor from memory - try reinstalling xterminate if the issue persists");
-        }
-
+        let custom_cursor = Cursor::load_from_file(get_cursor_path().as_str()).expect("failed to load default cursor from file");
         cursor::set_all(&custom_cursor);
     }
 
