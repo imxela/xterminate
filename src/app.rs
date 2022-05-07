@@ -50,7 +50,7 @@ impl App {
     /// Sets the system cursors to the xterminate cursor.
     pub fn activate(&self) {
         // Customize the system cursors to signify that xterminate is active
-        let custom_cursor = Cursor::load_from_file(get_cursor_path().as_str()).expect("failed to load default cursor from file");
+        let custom_cursor = Cursor::load_from_file(self.cursor_path.as_str()).expect("failed to load default cursor from file");
         cursor::set_all(&custom_cursor);
     }
 

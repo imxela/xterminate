@@ -7,7 +7,6 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CopyImage,
     SetSystemCursor,
     SystemParametersInfoA,
-    CreateIconFromResource,
 
     SYSTEM_CURSOR_ID,
     HCURSOR,
@@ -121,19 +120,6 @@ impl Cursor {
         match hcursor {
             Ok(v) => Ok(Self { handle: v.0 }),
             Err(e) => Err(AppError::new("failed to load cursor from file", unsafe { Some(GetLastError().0 as usize) }, Some(Box::new(e))))
-        }
-    }
-
-    /// Loads a cursor from the specified [Vec]. If `data` does not contain
-    /// valid binary for a cursor, this method returns an `Err(...)`.
-    pub fn load_from_memory(data: &Vec<u8>) -> AppResult<Self> {
-        let hcursor = unsafe {
-            CreateIconFromResource(data.as_ptr(), data.len() as u32, false, 0x00030000)
-        };
-
-        match hcursor {
-            Ok(v) => Ok(Self { handle: v.0 }),
-            Err(e) => Err(AppError::new("failed to load cursor from memory", unsafe { Some(GetLastError().0 as usize) }, Some(Box::new(e))))
         }
     }
 
