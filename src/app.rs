@@ -8,7 +8,8 @@ use crate::printfl;
 static mut SINGLETON: Option<App> = None;
 
 /// The path to the cursor file relative to the executable's working directory
-const CURSOR_FILENAME: &str = "data/cursor.cur";
+const CURSOR_FILENAME: &str = "cursor.cur";
+const ICON_FILENAME: &str = "icon.ico";
 
 enum AppState {
     Sleeping,
@@ -126,10 +127,19 @@ impl App {
 
 /// Returns the absolute path of the cursor file.
 fn get_cursor_path() -> String {
-    let rel_cursor_path = std::path::PathBuf::from(CURSOR_FILENAME);
-    let mut abs_cursor_path = std::env::current_exe().expect("failed to retrieve path to executable");
-    abs_cursor_path.pop(); // Remove executable filename to get the root dir only
-    abs_cursor_path.push(rel_cursor_path); // Add the relative cursor path to the root dir
+    get_resource_path(CURSOR_FILENAME)
+}
 
-    abs_cursor_path.display().to_string()
+fn get_icon_path() -> String {
+    get_resource_path(ICON_FILENAME)
+}
+
+/// Returns the absolute path of a file relative to the 'res' folder
+fn get_resource_path(filename: &str) -> String {
+    let relative = std::path::PathBuf::from(format!("res/{}", filename));
+    let mut absolute = std::env::current_exe().expect("failed to get path to executable");
+    absolute.pop(); // Remove the executable filename to get the root directory
+    absolute.push(relative); // Add the relative path to the root directory
+
+    absolute.display().to_string()
 }
