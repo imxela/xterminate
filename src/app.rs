@@ -1,19 +1,23 @@
-use crate::input::{Input, KeyCode, KeyStatus, KeyState};
+use std::rc::Rc;
+use std::cell::RefCell;
+
+use crate::window::Window;
+use crate::input::{Input, KeyCode, KeyStatus, KeyState, InputEventHandler};
+use crate::tray::{Tray, TrayEvent, TrayEventHandler};
 use crate::cursor;
 use crate::cursor::Cursor;
-use crate::window::Window;
 
 use crate::printfl;
-
-static mut SINGLETON: Option<App> = None;
 
 /// The path to the cursor file relative to the executable's working directory
 const CURSOR_FILENAME: &str = "cursor.cur";
 const ICON_FILENAME: &str = "icon.ico";
 
+#[derive(PartialEq, Eq)]
 enum AppState {
     Sleeping,
-    Active
+    Active,
+    Exiting
 }
 
 pub struct App {
@@ -23,28 +27,33 @@ pub struct App {
 
 impl App {
     /// Creates a new singleton instance of `App` and returns it.
-    fn new() -> &'static mut Self { unsafe {
-        SINGLETON = Some(Self {
-            appstate: AppState::Sleeping,
+    pub fn new() -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Self { 
+            appstate: AppState::Sleeping, 
             cursor_path: get_cursor_path()
-        });
-
-        SINGLETON.as_mut().unwrap()
-    } }
-
-    /// Retrieves the singleton instance of App. If one
-    /// does not already exist, a new one is created and returned. 
-    pub fn instance() -> &'static mut Self { unsafe {
-        match SINGLETON.as_mut() {
-            Some(v) => v,
-            None => Self::new()
-        }
-    } }
+        }))
+    }
     
     /// Runs xterminate
-    pub fn run(&mut self) {
+    pub fn run(app: Rc<RefCell<Self>>) {
         println!("Running!");
-        Input::poll(Self::on_keystate_changed)
+        
+        let input = Input::create(app.clone());
+        let tray = Tray::create(&get_icon_path(), app.clone());
+
+        while app.borrow().appstate != AppState::Exiting {
+            input.poll();
+            tray.poll();
+        }
+
+        printfl!("Exiting...");
+        input.unregister();
+        tray.delete();
+        println!(" Done!");
+    }
+
+    pub fn shutdown(&mut self) {
+        self.appstate = AppState::Exiting;
     }
 
     /// Called when going from `AppState::Sleeping` to `ÀppState::Active`.
@@ -81,10 +90,10 @@ impl App {
 
         true
     }
+}
 
-    /// Callback invoked by the `Input` struct when the keystate changes.
-    /// Responsible for transitioning between different states.
-    fn on_keystate_changed(&mut self, state: KeyState, _keycode: KeyCode, _keystatus: KeyStatus) -> bool {
+impl InputEventHandler for App {
+    fn handle(&mut self, state: KeyState, _keycode: KeyCode, _keystatus: KeyStatus) -> bool {
         match self.appstate {
             AppState::Sleeping => { 
                 if state.pressed(KeyCode::LeftControl) &&
@@ -118,10 +127,36 @@ impl App {
 
                     return true;
                 }
+            },
+
+            AppState::Exiting => {
+                // Do nothing
             }
         }
 
-        return false;
+        return false;   
+    }
+}
+
+impl TrayEventHandler for App {
+    fn handle(&mut self, event: TrayEvent) {
+        match event {
+            TrayEvent::OnMenuSelectExit => {
+                self.shutdown();
+            },
+
+            TrayEvent::OnMenuSelectResetCursor => {
+                if self.appstate == AppState::Active {
+                    self.appstate = AppState::Sleeping;
+                }
+                
+                cursor::reset();
+            },
+
+            TrayEvent::OnMenuSelectStartWithWindows => {
+                println!("TrayEventHandler: START_WITH_WINDOWS");
+            }
+        }
     }
 }
 

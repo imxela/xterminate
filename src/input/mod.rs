@@ -10,12 +10,11 @@ use windows::Win32::UI::Input::{
     RAWINPUT,
     
     RIDEV_INPUTSINK,
-    RIDEV_NOLEGACY,
     RID_INPUT,
     RIDEV_REMOVE,
     
     RegisterRawInputDevices,
-    GetRawInputData
+    GetRawInputData,
 };
 
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -25,15 +24,21 @@ use windows::Win32::UI::WindowsAndMessaging::{
     
     HWND_MESSAGE,
     WM_CREATE,
+    WM_DESTROY,
     WM_INPUT,
     MAPVK_VSC_TO_VK_EX,
+    PM_REMOVE,
+    GWLP_USERDATA,
 
     RegisterClassA,
     CreateWindowExA,
-    GetMessageA,
+    PeekMessageA,
     TranslateMessage,
     DispatchMessageA,
-    DefWindowProcA
+    DefWindowProcA,
+    DestroyWindow, 
+    SetWindowLongPtrA, 
+    GetWindowLongPtrA
 };
 
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
@@ -68,10 +73,12 @@ use windows::Win32::Devices::HumanInterfaceDevice::{
     HID_USAGE_GENERIC_MOUSE
 };
 
+use std::rc::Rc;
+use std::cell::RefCell;
 use std::collections::HashMap;
-
+ 
+// Todo: Make this not static?
 static mut KEYS: Option<HashMap<KeyCode, KeyStatus>> = None;
-static mut INSTANCE: Option<Input> = None;
 
 pub struct KeyState {
 }
@@ -94,33 +101,23 @@ impl KeyState {
     }
 }
 
+pub trait InputEventHandler {
+    fn handle(&mut self, state: KeyState, keycode: KeyCode, keystatus: KeyStatus) -> bool;
+}
+
 pub struct Input {
-    callback: fn(&mut crate::app::App, KeyState, KeyCode, KeyStatus) -> bool
+    hwnd: HWND,
+    event_handler: Rc<RefCell<dyn InputEventHandler>>
 }
 
 impl Input {
-    /// Responsible for creating the message-only window and handling the raw input message loop.
-    /// 
-    /// ## Notes 
-    /// 
-    /// This method is blocking.
-    /// 
-    /// ## Arguments
-    /// 
-    /// - `callback` - The callback to receive processed raw-input key and mouse events
-    pub fn poll(callback: fn(&mut crate::app::App, KeyState, KeyCode, KeyStatus) -> bool) { unsafe {
+    pub fn create(event_handler: Rc<RefCell<dyn InputEventHandler>>) -> Self { unsafe {
         let mut wndclass = WNDCLASSA::default();
         wndclass.hInstance = GetModuleHandleA(PCSTR(std::ptr::null())); // Equivalent to the hInstance parameter passed to WinMain in C/C++
         wndclass.lpszClassName = PCSTR(String::from("xterminatorwcname").as_mut_ptr());
         wndclass.lpfnWndProc = Some(raw_input_callback);
         
         RegisterClassA(&wndclass);
-
-        {
-            Input::set_instance(Self {
-                callback
-            });
-        }
                 
         let hwnd = CreateWindowExA(
             Default::default(),
@@ -141,22 +138,33 @@ impl Input {
             panic!("window creation failed: CreateWindowExA() returned NULL (os error code {})", GetLastError().0);
         }
 
+        let mut instance = Self {
+            hwnd,
+            event_handler
+        };
+
+        SetWindowLongPtrA(hwnd, GWLP_USERDATA, &mut instance as *mut Input as isize);
+
         KEYS = Some(HashMap::new());
 
+        instance
+    }}
+
+    pub fn poll(&self) { unsafe {
         let mut message = MSG::default();
-        while GetMessageA(&mut message, hwnd, 0, 0).as_bool() {
+        if PeekMessageA(&mut message, self.hwnd, 0, 0, PM_REMOVE).as_bool()
+        {
             TranslateMessage(&message);
             DispatchMessageA(&message);
         }
-    } }
+    }}
 
-    fn set_instance(input: Input) {
-        unsafe { INSTANCE = Some(input) };
-    }
-
-    fn instance() -> &'static mut Option<Input> {
-        unsafe { &mut INSTANCE }
-    }
+    pub fn unregister(&self) { unsafe {
+        // DestroyWindow triggers the WM_DESTROY message in the
+        // WndProc handler above, which in turn unregiosters the
+        // raw input devices.
+        DestroyWindow(self.hwnd);
+    }}
 }
 
 fn set_key_state(keycode: KeyCode, keystatus: KeyStatus) { unsafe {
@@ -191,30 +199,50 @@ fn process_mouse_input(mouse: &RAWMOUSE) -> Option<(KeyCode, KeyStatus)> {
     Some((keycode, keystatus))
 }
 
-/// This callback handles everything related to the Windows raw input API except the windowing which is handled by `Input::poll(...)`.
 unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
         WM_CREATE => {
             let mut devices = [RAWINPUTDEVICE::default(); 2];
 
             let keyboard_device = &mut devices[0];
-            keyboard_device.dwFlags = RIDEV_NOLEGACY | RIDEV_INPUTSINK;
+            keyboard_device.dwFlags = RIDEV_INPUTSINK;
             keyboard_device.usUsagePage = HID_USAGE_PAGE_GENERIC;
             keyboard_device.usUsage = HID_USAGE_GENERIC_KEYBOARD;
             keyboard_device.hwndTarget = hwnd;
             
 
             let mouse_device = &mut devices[1];
-            mouse_device.dwFlags = RIDEV_NOLEGACY | RIDEV_INPUTSINK;
+            mouse_device.dwFlags = RIDEV_INPUTSINK;
             mouse_device.usUsagePage = HID_USAGE_PAGE_GENERIC;
             mouse_device.usUsage = HID_USAGE_GENERIC_MOUSE;
             mouse_device.hwndTarget = hwnd;
-
+            
             RegisterRawInputDevices(&devices, std::mem::size_of::<RAWINPUTDEVICE>() as u32)
                 .expect(format!("RegisterRawInputDevices() failed: {}", GetLastError().0).as_str());
 
-            // LRESULT with a value of 0 signals Windows to continue with window creation
             return LRESULT(0);
+        },
+
+        WM_DESTROY => {
+            let mut devices = [RAWINPUTDEVICE::default(); 2];
+
+            let keyboard_device = &mut devices[0];
+            keyboard_device.dwFlags = RIDEV_REMOVE;
+            keyboard_device.usUsagePage = HID_USAGE_PAGE_GENERIC;
+            keyboard_device.usUsage = HID_USAGE_GENERIC_KEYBOARD;
+            keyboard_device.hwndTarget = HWND(0);
+            
+        
+            let mouse_device = &mut devices[1];
+            mouse_device.dwFlags = RIDEV_REMOVE;
+            mouse_device.usUsagePage = HID_USAGE_PAGE_GENERIC;
+            mouse_device.usUsage = HID_USAGE_GENERIC_MOUSE;
+            mouse_device.hwndTarget = HWND(0);
+        
+            RegisterRawInputDevices(&devices, std::mem::size_of::<RAWINPUTDEVICE>() as u32)
+                .expect(format!("RegisterRawInputDevices() failed: {}", GetLastError().0).as_str());
+
+            return LRESULT(0)
         },
 
         WM_INPUT => {
@@ -278,11 +306,14 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
             let (keycode, keystatus) = keystate.unwrap();
             set_key_state(keycode, keystatus);
 
+            let instance = GetWindowLongPtrA(hwnd, GWLP_USERDATA) as *mut Input;
+            let handler = &mut instance.as_mut().unwrap().event_handler;
+
             // Callback determines whether the input message
             // should be consumed or not via its return value.
             // If true, return LRESULT of value 0 to indicate so.
-            let should_consume = (Input::instance().as_ref().unwrap().callback)(&mut *crate::app::App::instance(), KeyState::new(), keycode, keystatus);
-            if should_consume {
+            let consume = handler.as_ref().borrow_mut().handle(KeyState::new(), keycode, keystatus);
+            if consume {
                 return LRESULT(0);
             }
 
@@ -293,31 +324,5 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
             // Any other message kind can be ignored and passed on
             return DefWindowProcA(hwnd, msg, wparam, lparam);
         }
-    }
-}
-
-/// This should not be called manually as the application
-/// unregisters by itself. This is only ever called if the
-/// application panics in order to switch to the system-
-/// default message handling.
-pub fn unregister() {
-    let mut devices = [RAWINPUTDEVICE::default(); 2];
-
-    let keyboard_device = &mut devices[0];
-    keyboard_device.dwFlags = RIDEV_REMOVE;
-    keyboard_device.usUsagePage = HID_USAGE_PAGE_GENERIC;
-    keyboard_device.usUsage = HID_USAGE_GENERIC_KEYBOARD;
-    keyboard_device.hwndTarget = HWND(0);
-    
-
-    let mouse_device = &mut devices[1];
-    mouse_device.dwFlags = RIDEV_REMOVE;
-    mouse_device.usUsagePage = HID_USAGE_PAGE_GENERIC;
-    mouse_device.usUsage = HID_USAGE_GENERIC_MOUSE;
-    mouse_device.hwndTarget = HWND(0);
-
-    unsafe {
-        RegisterRawInputDevices(&devices, std::mem::size_of::<RAWINPUTDEVICE>() as u32)
-        .expect(format!("RegisterRawInputDevices() failed: {}", GetLastError().0).as_str());
     }
 }

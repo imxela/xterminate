@@ -4,6 +4,7 @@ pub mod input;
 pub mod process;
 pub mod window;
 pub mod cursor;
+pub mod tray;
 
 /// Flushed `print!()` macro
 macro_rules! printfl {
@@ -21,7 +22,6 @@ use app::App;
 
 fn main() {
     error::set_panic_hook();
-
-    let app = App::instance();
-    app.run();
+    
+    App::run(App::new());
 }
