@@ -151,10 +151,6 @@ impl TrayEventHandler for App {
                 }
                 
                 cursor::reset();
-            },
-
-            TrayEvent::OnMenuSelectStartWithWindows => {
-                println!("TrayEventHandler: START_WITH_WINDOWS");
             }
         }
     }

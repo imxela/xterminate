@@ -69,8 +69,7 @@ use std::cell::RefCell;
 #[repr(usize)]
 pub enum TrayEvent {
     OnMenuSelectExit = 0,
-    OnMenuSelectResetCursor = 1,
-    OnMenuSelectStartWithWindows = 2,
+    OnMenuSelectResetCursor = 1
 }
 
 pub trait TrayEventHandler {
@@ -82,7 +81,6 @@ impl From<u16> for TrayEvent {
         match v {
             0 => Self::OnMenuSelectExit,
             1 => Self::OnMenuSelectResetCursor,
-            2 => Self::OnMenuSelectStartWithWindows,
             _ => panic!("Invalid enum value '{}'", v)
         }
     }
@@ -184,7 +182,6 @@ impl Tray {
         GetCursorPos(&mut cursor_pos);
 
         let menu_handle = CreatePopupMenu().unwrap();
-        InsertMenuA(menu_handle, 0, MF_BYPOSITION, TrayEvent::OnMenuSelectStartWithWindows as usize, "Start with Windows (OFF)");
         InsertMenuA(menu_handle, 1, MF_BYPOSITION, TrayEvent::OnMenuSelectResetCursor as usize , "Reset cursor");
         InsertMenuA(menu_handle, 2, MF_BYPOSITION, TrayEvent::OnMenuSelectExit as usize, "Exit");
         
