@@ -17,7 +17,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 
 #[repr(u16)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum KeyCode {
     // Keyboard
     LeftControl = VK_LCONTROL.0,

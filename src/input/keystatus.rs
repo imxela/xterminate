@@ -22,7 +22,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     RI_MOUSE_BUTTON_5_UP
 };
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum KeyStatus {
     Released,
     Pressed
