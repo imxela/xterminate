@@ -76,27 +76,34 @@ use windows::Win32::Devices::HumanInterfaceDevice::{
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
- 
-// Todo: Make this not static?
-static mut KEYS: Option<HashMap<KeyCode, KeyStatus>> = None;
 
+#[derive(Clone)]
 pub struct KeyState {
+    keys: Rc<RefCell<HashMap<KeyCode, KeyStatus>>>
 }
 
 impl KeyState {
-    pub fn new() -> Self {
-        Self {}
+    /// Should not be called anywhere else. Use `.clone()` to create a new instance.
+    fn new() -> Self {
+        Self {
+            keys: Rc::new(RefCell::new(HashMap::new()))
+        }
     }
 
-    pub fn get(&self, keycode: KeyCode) -> KeyStatus {
-        get_key_state(keycode)
+    /// Modifies keystate, not meant to be called manually anywhere else except for `Input`.
+    fn set(&mut self, keycode: KeyCode, keystatus: KeyStatus) {
+        *self.keys.borrow_mut().entry(keycode).or_insert(keystatus) = keystatus;
     }
 
-    pub fn released(&self, keycode: KeyCode) -> bool {
+    pub fn get(&mut self, keycode: KeyCode) -> KeyStatus {
+        *self.keys.borrow_mut().entry(keycode).or_insert(KeyStatus::Released)
+    }
+
+    pub fn released(&mut self, keycode: KeyCode) -> bool {
         self.get(keycode) == KeyStatus::Released
     }
 
-    pub fn pressed(&self, keycode: KeyCode) -> bool {
+    pub fn pressed(&mut self, keycode: KeyCode) -> bool {
         self.get(keycode) == KeyStatus::Pressed
     }
 }
@@ -107,6 +114,7 @@ pub trait InputEventHandler {
 
 pub struct Input {
     hwnd: HWND,
+    keys: KeyState,
     event_handler: Rc<RefCell<dyn InputEventHandler>>
 }
 
@@ -140,12 +148,11 @@ impl Input {
 
         let mut instance = Self {
             hwnd,
+            keys: KeyState::new(),
             event_handler
         };
 
         SetWindowLongPtrA(hwnd, GWLP_USERDATA, &mut instance as *mut Input as isize);
-
-        KEYS = Some(HashMap::new());
 
         instance
     }}
@@ -166,14 +173,6 @@ impl Input {
         DestroyWindow(self.hwnd);
     }}
 }
-
-fn set_key_state(keycode: KeyCode, keystatus: KeyStatus) { unsafe {
-    *KEYS.as_mut().unwrap().entry(keycode).or_insert(keystatus) = keystatus;
-} }
-
-fn get_key_state(keycode: KeyCode) -> KeyStatus { unsafe {
-    *KEYS.as_mut().unwrap().entry(keycode).or_insert(KeyStatus::Released)
-} }
 
 /// Processes raw mouse input (`RAWKEYBOARD`) into a universal `KeyStatus`.
 fn process_keyboard_input(keyboard: &RAWKEYBOARD) -> Option<(KeyCode, KeyStatus)> {
@@ -303,16 +302,16 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
                 return DefWindowProcA(hwnd, msg, wparam, lparam);
             }
 
-            let (keycode, keystatus) = keystate.unwrap();
-            set_key_state(keycode, keystatus);
-
             let instance = GetWindowLongPtrA(hwnd, GWLP_USERDATA) as *mut Input;
-            let handler = &mut instance.as_mut().unwrap().event_handler;
+
+            let (keycode, keystatus) = keystate.unwrap();
+            instance.as_mut().unwrap().keys.set(keycode, keystatus);
 
             // Callback determines whether the input message
             // should be consumed or not via its return value.
             // If true, return LRESULT of value 0 to indicate so.
-            let consume = handler.as_ref().borrow_mut().handle(KeyState::new(), keycode, keystatus);
+            let handler = &mut instance.as_mut().unwrap().event_handler;
+            let consume = handler.as_ref().borrow_mut().handle(instance.as_mut().unwrap().keys.clone(), keycode, keystatus);
             if consume {
                 return LRESULT(0);
             }

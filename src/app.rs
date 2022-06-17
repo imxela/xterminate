@@ -93,7 +93,7 @@ impl App {
 }
 
 impl InputEventHandler for App {
-    fn handle(&mut self, state: KeyState, _keycode: KeyCode, _keystatus: KeyStatus) -> bool {
+    fn handle(&mut self, mut state: KeyState, _keycode: KeyCode, _keystatus: KeyStatus) -> bool {
         match self.appstate {
             AppState::Sleeping => { 
                 if state.pressed(KeyCode::LeftControl) &&
