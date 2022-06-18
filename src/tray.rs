@@ -27,7 +27,7 @@ use windows::Win32::UI::Shell::{
 use windows::Win32::UI::WindowsAndMessaging::{
     HICON,
     HMENU,
-    WNDCLASSA,
+    WNDCLASSEXA,
     MSG,
 
     IMAGE_ICON,
@@ -42,7 +42,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GWLP_USERDATA,
 
     CreateWindowExA,
-    RegisterClassA,
+    RegisterClassExA,
     DefWindowProcA,
     CreatePopupMenu,
     TrackPopupMenu,
@@ -121,12 +121,17 @@ impl Tray {
     }}
 
     fn create_window() -> HWND { unsafe {
-        let mut wndclass = WNDCLASSA::default();
+        let mut wndclass = WNDCLASSEXA::default();
+        wndclass.cbSize = std::mem::size_of::<WNDCLASSEXA>() as u32;
         wndclass.hInstance = GetModuleHandleA(PCSTR(std::ptr::null())); // Equivalent to the hInstance parameter passed to WinMain in C/C++
-        wndclass.lpszClassName = PCSTR(String::from("xterminatortrayiconwcname").as_mut_ptr());
         wndclass.lpfnWndProc = Some(trayicon_input_callback);
         
-        RegisterClassA(&wndclass);
+        let class_name = std::ffi::CString::new("xterminatortrayiconwcname".as_bytes()).unwrap();
+        wndclass.lpszClassName = PCSTR(class_name.as_ptr() as *const u8);
+        
+        if RegisterClassExA(&wndclass) == 0 {
+            panic!("tray-icon window class registration failed: RegisterClassA() returned NULL (os error code {})", GetLastError().0);
+        }
 
         let hwnd = CreateWindowExA(
             Default::default(),

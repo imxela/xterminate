@@ -18,7 +18,7 @@ use windows::Win32::UI::Input::{
 };
 
 use windows::Win32::UI::WindowsAndMessaging::{
-    WNDCLASSA,
+    WNDCLASSEXA,
     HMENU,
     MSG,
     
@@ -30,7 +30,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     PM_REMOVE,
     GWLP_USERDATA,
 
-    RegisterClassA,
+    RegisterClassExA,
     CreateWindowExA,
     PeekMessageA,
     TranslateMessage,
@@ -120,12 +120,17 @@ pub struct Input {
 
 impl Input {
     pub fn create(event_handler: Rc<RefCell<dyn InputEventHandler>>) -> Self { unsafe {
-        let mut wndclass = WNDCLASSA::default();
+        let mut wndclass = WNDCLASSEXA::default();
+        wndclass.cbSize = std::mem::size_of::<WNDCLASSEXA>() as u32;
         wndclass.hInstance = GetModuleHandleA(PCSTR(std::ptr::null())); // Equivalent to the hInstance parameter passed to WinMain in C/C++
-        wndclass.lpszClassName = PCSTR(String::from("xterminatorwcname").as_mut_ptr());
         wndclass.lpfnWndProc = Some(raw_input_callback);
         
-        RegisterClassA(&wndclass);
+        let class_name = std::ffi::CString::new("xterminatorwcname".as_bytes()).unwrap();
+        wndclass.lpszClassName = PCSTR(class_name.as_ptr() as *const u8);
+
+        if RegisterClassExA(&wndclass) == 0 {
+            panic!("input window class registration failed: RegisterClassA() returned NULL (os error code {})", GetLastError().0);
+        }
                 
         let hwnd = CreateWindowExA(
             Default::default(),
