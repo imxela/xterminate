@@ -42,15 +42,15 @@ impl App {
         let tray = Tray::create(&get_icon_path(), app.clone());
 
         while app.borrow().appstate != AppState::Exiting {
-            input.poll();
-            tray.poll();
-
             // The message loops for input and tray both run
             // on the same thread so we can use WaitMessage()
             // to block the thread until a message is receieved
             // instead of wasting CPU time on polling constantly.
             use windows::Win32::UI::WindowsAndMessaging::WaitMessage;
             unsafe { WaitMessage() };
+
+            input.poll();
+            tray.poll();
         }
 
         printfl!("Exiting...");
