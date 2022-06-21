@@ -164,7 +164,7 @@ impl Input {
 
     pub fn poll(&self) { unsafe {
         let mut message = MSG::default();
-        if PeekMessageA(&mut message, self.hwnd, 0, 0, PM_REMOVE).as_bool()
+        while PeekMessageA(&mut message, self.hwnd, 0, 0, PM_REMOVE).as_bool()
         {
             TranslateMessage(&message);
             DispatchMessageA(&message);
