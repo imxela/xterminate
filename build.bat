@@ -2,7 +2,7 @@
 
 CALL cargo build --release
 
-ROBOCOPY "%UserProfile%\Desktop\xterminate-main\res" "%UserProfile%\Desktop\xterminate-main\target\release\res" /E
-ROBOCOPY "%UserProfile%\Desktop\xterminate-main" "%UserProfile%\Desktop\xterminate-main\target\release" "LICENSE"
+ROBOCOPY .\res .\target\release\res /E
+ROBOCOPY . .\target\release LICENSE
 
 PAUSE
