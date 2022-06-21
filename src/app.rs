@@ -15,9 +15,9 @@ const ICON_FILENAME: &str = "icon.ico";
 
 #[derive(PartialEq, Eq)]
 enum AppState {
-    Sleeping,
+    Standby,
     Active,
-    Exiting
+    Shutdown
 }
 
 pub struct App {
@@ -29,7 +29,7 @@ impl App {
     /// Creates a new singleton instance of `App` and returns it.
     pub fn new() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self { 
-            appstate: AppState::Sleeping, 
+            appstate: AppState::Standby, 
             cursor_path: get_cursor_path()
         }))
     }
@@ -41,7 +41,7 @@ impl App {
         let input = Input::create(app.clone());
         let tray = Tray::create(&get_icon_path(), app.clone());
 
-        while app.borrow().appstate != AppState::Exiting {
+        while app.borrow().appstate != AppState::Shutdown {
             // The message loops for input and tray both run
             // on the same thread so we can use WaitMessage()
             // to block the thread until a message is receieved
@@ -60,7 +60,7 @@ impl App {
     }
 
     pub fn shutdown(&mut self) {
-        self.appstate = AppState::Exiting;
+        self.appstate = AppState::Shutdown;
     }
 
     /// Called when going from `AppState::Sleeping` to `ÀppState::Active`.
@@ -102,7 +102,7 @@ impl App {
 impl InputEventHandler for App {
     fn handle(&mut self, mut state: KeyState, _keycode: KeyCode, _keystatus: KeyStatus) -> bool {
         match self.appstate {
-            AppState::Sleeping => { 
+            AppState::Standby => { 
                 if state.pressed(KeyCode::LeftControl) &&
                    state.pressed(KeyCode::LeftAlt) &&
                    state.pressed(KeyCode::End) {
@@ -125,18 +125,18 @@ impl InputEventHandler for App {
                     }
 
                     println!(" Success!");
-                    self.appstate = AppState::Sleeping;
+                    self.appstate = AppState::Standby;
                     return true;
                 } else if state.pressed(KeyCode::Escape) {
                     printfl!("Aborted.");
-                    self.appstate = AppState::Sleeping;
+                    self.appstate = AppState::Standby;
                     self.deactivate();
 
                     return true;
                 }
             },
 
-            AppState::Exiting => {
+            AppState::Shutdown => {
                 // Do nothing
             }
         }
@@ -154,7 +154,7 @@ impl TrayEventHandler for App {
 
             TrayEvent::OnMenuSelectResetCursor => {
                 if self.appstate == AppState::Active {
-                    self.appstate = AppState::Sleeping;
+                    self.appstate = AppState::Standby;
                 }
                 
                 cursor::reset();
