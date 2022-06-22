@@ -8,6 +8,7 @@ use crate::cursor;
 use crate::cursor::Cursor;
 
 use crate::printfl;
+use crate::eprintfl;
 
 /// The path to the cursor file relative to the executable's working directory
 const CURSOR_FILENAME: &str = "cursor.cur";
@@ -76,29 +77,6 @@ impl App {
     pub fn deactivate(&self) {
         cursor::reset();
     }
-
-    /// Called when the left mouse button is clicked while in the `AppState::Active` state.
-    /// Runs the termination procedure and returns true on success or
-    /// false if no window is located under the cursor.
-    /// 
-    /// Todo: Remove this method, do the logic in InputEventHandler's implementation instead.
-    pub fn xterminate(&self) -> bool {
-        // Terminate process under the cursor and reset
-        // the system cursors back to the default ones.
-        cursor::reset();
-
-        let (cursor_x, cursor_y) = cursor::position();
-        let target_window = match Window::from_point(cursor_x, cursor_y) {
-            Some(v) => v,
-            None => return false
-        };
-
-        let target_process = target_window.process();
-
-        target_process.terminate();
-
-        true
-    }
 }
 
 impl InputEventHandler for App {
@@ -108,12 +86,13 @@ impl InputEventHandler for App {
                 if state.pressed(KeyCode::LeftControl) &&
                    state.pressed(KeyCode::LeftAlt) &&
                    state.pressed(KeyCode::End) {
-                       println!("Activated!");
-                       printfl!("Waiting for trigger...");
-                       self.appstate = AppState::Active;
-                       self.activate();
+                        println!("Activated!");
+                        printfl!("Waiting for trigger...");
 
-                       return true;
+                        self.appstate = AppState::Active;
+                        self.activate();
+
+                        return true;
                 } 
                 else if state.pressed(KeyCode::LeftControl) &&
                         state.pressed(KeyCode::LeftAlt) &&
@@ -132,12 +111,24 @@ impl InputEventHandler for App {
                 if state.pressed(KeyCode::LeftMouseButton) {
                     println!(" Triggered!");
                     printfl!("Terminating...");
-                    if !self.xterminate() {
-                        println!(" Failed (no window at mouse position, trying again)");
-                        return false;
+
+                    // Terminate process under the cursor and reset
+                    // the system cursors back to the default ones.
+                    cursor::reset();
+
+                    let (cursor_x, cursor_y) = cursor::position();
+                    let window = Window::from_point(cursor_x, cursor_y);
+                    match window {
+                        Some(window) => {
+                            window.process().terminate();
+                            printfl!(" Success!");
+                        },
+
+                        None => {
+                            eprintfl!(" Failed to terminate window: no window under mouse pointer");
+                        }
                     }
 
-                    println!(" Success!");
                     self.appstate = AppState::Standby;
                     return true;
                 } else if state.pressed(KeyCode::Escape) {
@@ -154,6 +145,7 @@ impl InputEventHandler for App {
             }
         }
 
+        // No message was processed
         return false;   
     }
 }
