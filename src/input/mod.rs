@@ -313,11 +313,10 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
             instance.as_mut().unwrap().keys.set(keycode, keystatus);
 
             // Callback determines whether the input message
-            // should be consumed or not via its return value.
-            // If true, return LRESULT of value 0 to indicate so.
+            // was processed or not, if it was then LRESULT should be 0.
             let handler = &mut instance.as_mut().unwrap().event_handler;
-            let consume = handler.as_ref().borrow_mut().handle(instance.as_mut().unwrap().keys.clone(), keycode, keystatus);
-            if consume {
+            let processed = handler.as_ref().borrow_mut().handle(instance.as_mut().unwrap().keys.clone(), keycode, keystatus);
+            if processed {
                 return LRESULT(0);
             }
 
