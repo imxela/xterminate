@@ -18,7 +18,18 @@ macro_rules! printfl {
     };
 }
 
+/// Flushed `eprint!()` macro
+macro_rules! eprintfl {
+    ($($arg:tt)*) => {
+        use std::io::Write;
+
+        eprint!("{}", format_args!($($arg)*));
+        std::io::stderr().flush().unwrap();
+    };
+}
+
 pub(crate) use printfl;
+pub(crate) use eprintfl;
 
 use app::App;
 
