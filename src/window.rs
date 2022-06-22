@@ -1,5 +1,10 @@
 use windows::Win32::Foundation::{ POINT, HWND };
-use windows::Win32::UI::WindowsAndMessaging::{ WindowFromPoint, GetWindowThreadProcessId };
+
+use windows::Win32::UI::WindowsAndMessaging::{ 
+    WindowFromPoint, 
+    GetForegroundWindow, 
+    GetWindowThreadProcessId 
+};
 
 use crate::process::Process;
 
@@ -13,6 +18,22 @@ impl Window {
     pub fn from_point(x: i32, y: i32) -> Option<Self> {
         let hwnd = unsafe { 
             WindowFromPoint(POINT { x: x, y: y }) 
+        };
+
+        if hwnd.0 == 0 {
+            return None;
+        }
+
+        Some(Self {
+            handle: hwnd.0
+        })
+    }
+
+    /// Returns the currently focused [Window] or `None` if there is no
+    /// valid window in the foreground.
+    pub fn from_foreground() -> Option<Self> {
+        let hwnd = unsafe {
+            GetForegroundWindow()
         };
 
         if hwnd.0 == 0 {

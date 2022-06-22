@@ -80,6 +80,8 @@ impl App {
     /// Called when the left mouse button is clicked while in the `AppState::Active` state.
     /// Runs the termination procedure and returns true on success or
     /// false if no window is located under the cursor.
+    /// 
+    /// Todo: Remove this method, do the logic in InputEventHandler's implementation instead.
     pub fn xterminate(&self) -> bool {
         // Terminate process under the cursor and reset
         // the system cursors back to the default ones.
@@ -112,6 +114,17 @@ impl InputEventHandler for App {
                        self.activate();
 
                        return true;
+                } 
+                else if state.pressed(KeyCode::LeftControl) &&
+                        state.pressed(KeyCode::LeftAlt) &&
+                        state.pressed(KeyCode::F4) {
+                            if let Some(window) = Window::from_foreground() {
+                                window.process().terminate();
+                                return true;
+                            } else {
+                                eprintln!("failed to terminate foreground window: no valid window is in focus");
+                                return false;
+                            }
                 }
             },
 

@@ -11,6 +11,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     VK_LMENU,
     VK_END,
     VK_ESCAPE,
+    VK_F4,
 
     // Mouse
     VK_LBUTTON
@@ -24,6 +25,8 @@ pub enum KeyCode {
     LeftAlt = VK_LMENU.0,
     End = VK_END.0,
     Escape = VK_ESCAPE.0,
+
+    F4 = VK_F4.0,
 
     // Mouse
     LeftMouseButton = VK_LBUTTON.0
@@ -40,6 +43,8 @@ impl KeyCode {
             VK_LMENU => Some(KeyCode::LeftAlt),
             VK_END => Some(KeyCode::End),
             VK_ESCAPE => Some(KeyCode::Escape),
+
+            VK_F4 => Some(KeyCode::F4),
 
             // Mouse
             VK_LBUTTON => Some(KeyCode::LeftMouseButton),
@@ -72,6 +77,8 @@ impl std::fmt::Display for KeyCode {
             KeyCode::LeftAlt => "Left Alt",
             KeyCode::End => "End",
             KeyCode::Escape => "Escape",
+
+            KeyCode::F4 => "F4",
 
             KeyCode::LeftMouseButton => "Left Mouse Button"
         })
