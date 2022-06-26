@@ -60,6 +60,26 @@ impl App {
         println!(" Done!");
     }
 
+    /// Forces the process associated with the specified [Window]
+    /// to terminate. If `try_graceful` is true, an attempt will be
+    /// made to gracefully exit the window before a termination is made.
+    fn terminate(&self, window: &mut Window, try_graceful: bool) {
+        // Todo: Get timout from config
+        let timeout = 3500;
+        
+        if try_graceful {
+            println!("Attempting graceful exit, timeout set to {}ms", timeout);
+
+            if window.process().try_exit(timeout) == true {
+                println!("Graceful exit sucessful!");
+                return;
+            }
+        }
+        
+        println!("Graceful exit failed, terminating.");
+        window.process().terminate()
+    }
+
     pub fn shutdown(&mut self) {
         self.appstate = AppState::Shutdown;
     }
@@ -97,8 +117,8 @@ impl InputEventHandler for App {
                 else if state.pressed(KeyCode::LeftControl) &&
                         state.pressed(KeyCode::LeftAlt) &&
                         state.pressed(KeyCode::F4) {
-                            if let Some(window) = Window::from_foreground() {
-                                window.process().terminate();
+                            if let Some(window) = &mut Window::from_foreground() {
+                                self.terminate(window, true);
                                 return true;
                             } else {
                                 eprintln!("failed to terminate foreground window: no valid window is in focus");
@@ -117,16 +137,11 @@ impl InputEventHandler for App {
                     cursor::reset();
 
                     let (cursor_x, cursor_y) = cursor::position();
-                    let window = Window::from_point(cursor_x, cursor_y);
-                    match window {
-                        Some(window) => {
-                            window.process().terminate();
-                            printfl!(" Success!");
-                        },
-
-                        None => {
-                            eprintfl!(" Failed to terminate window: no window under mouse pointer");
-                        }
+                    if let Some(window) = &mut Window::from_point(cursor_x, cursor_y) {
+                        self.terminate(window, true);
+                        printfl!(" Success!");
+                    } else {
+                        eprintfl!(" Failed to terminate window: no window under mouse pointer");
                     }
 
                     self.appstate = AppState::Standby;

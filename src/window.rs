@@ -3,7 +3,7 @@ use windows::Win32::Foundation::{ POINT, HWND };
 use windows::Win32::UI::WindowsAndMessaging::{ 
     WindowFromPoint, 
     GetForegroundWindow, 
-    GetWindowThreadProcessId 
+    GetWindowThreadProcessId
 };
 
 use crate::process::Process;
