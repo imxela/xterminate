@@ -66,10 +66,13 @@ const WM_USER_TRAYICON: u32 = WM_USER + TRAYICON_ID;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use crate::registry;
+
 #[repr(usize)]
 pub enum TrayEvent {
     OnMenuSelectExit = 0,
-    OnMenuSelectResetCursor = 1
+    OnMenuSelectStartWithWindows = 1,
+    OnMenuSelectResetCursor = 2
 }
 
 pub trait TrayEventHandler {
@@ -80,7 +83,8 @@ impl From<u16> for TrayEvent {
     fn from(v: u16) -> Self {
         match v {
             0 => Self::OnMenuSelectExit,
-            1 => Self::OnMenuSelectResetCursor,
+            1 => Self::OnMenuSelectStartWithWindows,
+            2 => Self::OnMenuSelectResetCursor,
             _ => panic!("Invalid enum value '{}'", v)
         }
     }
@@ -188,7 +192,18 @@ impl Tray {
 
         let menu_handle = CreatePopupMenu().unwrap();
         InsertMenuA(menu_handle, 1, MF_BYPOSITION, TrayEvent::OnMenuSelectResetCursor as usize , "Reset cursor");
-        InsertMenuA(menu_handle, 2, MF_BYPOSITION, TrayEvent::OnMenuSelectExit as usize, "Exit");
+
+        let enabled_str = match registry::exists(
+            registry::HKey::HKeyCurrentUser,
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+            Some("xterminate")
+        ) {
+            true => "ON",
+            false => "OFF"
+        };
+
+        InsertMenuA(menu_handle, 2, MF_BYPOSITION, TrayEvent::OnMenuSelectStartWithWindows as usize, format!("Start with Windows ({enabled_str})"));
+        InsertMenuA(menu_handle, 3, MF_BYPOSITION, TrayEvent::OnMenuSelectExit as usize, "Exit");
         
         // Required or the popup menu won't close properly
         SetForegroundWindow(self.hwnd);

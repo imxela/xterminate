@@ -6,6 +6,7 @@ use crate::input::{Input, KeyCode, KeyStatus, KeyState, InputEventHandler};
 use crate::tray::{Tray, TrayEvent, TrayEventHandler};
 use crate::cursor;
 use crate::cursor::Cursor;
+use crate::registry;
 
 use crate::printfl;
 use crate::eprintfl;
@@ -39,6 +40,12 @@ impl App {
     pub fn run(app: Rc<RefCell<Self>>) {
         println!("Running!");
         
+        // Retreive the autostart registry value and if it exists
+        // trigger an update in case the exeuctable was moved since
+        // last exeuction.
+        let autostart_enabled = app.borrow().autostart();
+        app.borrow_mut().set_autostart(autostart_enabled);
+
         let input = Input::create(app.clone());
         let tray = Tray::create(&get_icon_path(), app.clone());
 
@@ -58,6 +65,41 @@ impl App {
         input.unregister();
         tray.delete();
         println!(" Done!");
+    }
+
+
+    /// Sets the autostart registry value if `enabled` is true.
+    /// If `enabled` is false and an autostart value exists in
+    /// the registry, it will be deleted.
+    fn set_autostart(&self, enabled: bool) {
+        if enabled {
+            registry::set_value(
+                registry::HKey::HKeyCurrentUser, 
+                "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 
+                "xterminate", 
+                registry::ValueType::Sz, 
+                get_executable_path().as_str()
+            );
+        } else if registry::exists(
+            registry::HKey::HKeyCurrentUser, 
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 
+            Some("xterminate")
+        ) {
+            registry::delete_value(
+                registry::HKey::HKeyCurrentUser, 
+                "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 
+                "xterminate"
+            );
+        }
+    }
+
+    /// Returns true if the autostart registry value exists or false otherwise.
+    fn autostart(&self, ) -> bool {
+        registry::exists(
+            registry::HKey::HKeyCurrentUser,
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+            Some("xterminate")
+        )
     }
 
     /// Forces the process associated with the specified [Window]
@@ -172,6 +214,11 @@ impl TrayEventHandler for App {
                 self.shutdown();
             },
 
+            TrayEvent::OnMenuSelectStartWithWindows => {
+                self.set_autostart(!self.autostart());
+                println!("Start with Windows set to '{}'", self.autostart());
+            },
+
             TrayEvent::OnMenuSelectResetCursor => {
                 if self.appstate == AppState::Active {
                     self.appstate = AppState::Standby;
@@ -190,6 +237,12 @@ fn get_cursor_path() -> String {
 
 fn get_icon_path() -> String {
     get_resource_path(ICON_FILENAME)
+}
+
+fn get_executable_path() -> String {
+    std::env::current_exe().expect("failed to get path to executable")
+        .display()
+        .to_string()
 }
 
 /// Returns the absolute path of a file relative to the 'res' folder
