@@ -6,6 +6,7 @@ use crate::input::{Input, KeyCode, KeyStatus, KeyState, InputEventHandler};
 use crate::tray::{Tray, TrayEvent, TrayEventHandler};
 use crate::cursor;
 use crate::cursor::Cursor;
+use crate::config::Config;
 use crate::registry;
 
 use crate::printfl;
@@ -14,6 +15,8 @@ use crate::eprintfl;
 /// The path to the cursor file relative to the executable's working directory
 const CURSOR_FILENAME: &str = "cursor.cur";
 const ICON_FILENAME: &str = "icon.ico";
+const DEFAULT_CONFIG_BYTES: &'static [u8] = include_bytes!("..\\res\\config.toml");
+const CONFIG_FILENAME: &str = "config.toml";
 
 #[derive(PartialEq, Eq)]
 enum AppState {
@@ -23,6 +26,7 @@ enum AppState {
 }
 
 pub struct App {
+    config: Rc<RefCell<Config>>,
     appstate: AppState,
     cursor_path: String
 }
@@ -31,6 +35,7 @@ impl App {
     /// Creates a new singleton instance of `App` and returns it.
     pub fn new() -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self { 
+            config: Rc::new(RefCell::new(Self::load_config())),
             appstate: AppState::Standby, 
             cursor_path: get_cursor_path()
         }))
@@ -62,11 +67,63 @@ impl App {
         }
 
         printfl!("Exiting...");
+        Self::save_config(&app.borrow_mut().config.borrow_mut());
         input.unregister();
         tray.delete();
         println!(" Done!");
     }
 
+    fn load_config() -> Config {
+        let default_config = toml::from_slice::<Config>(DEFAULT_CONFIG_BYTES).unwrap();
+
+        let path = get_resource_path(CONFIG_FILENAME);
+
+        let content = match std::fs::read(&path) {
+            Ok(v) => v,
+            Err(_e) => {
+                println!("No config file found, creating a default one.");
+
+                // Create and read the default config
+                std::fs::write(&path, DEFAULT_CONFIG_BYTES)
+                    .expect("failed to write default config file to drive");
+
+                println!("Config file created.");
+
+                DEFAULT_CONFIG_BYTES.to_vec()
+            }
+        };
+        
+        let mut config = toml::from_slice::<Config>(&content)
+            .expect("failed to parse config file");
+
+        // Check if the current and new config files are compatible, if not replace the old one.
+        if  config.compatibility.version_major < default_config.compatibility.version_major ||
+            config.compatibility.version_minor < default_config.compatibility.version_minor ||
+            config.compatibility.version_patch < default_config.compatibility.version_patch {
+                println!("Config file compatibility version mismatch, replacing old config with updated default config.");
+
+                std::fs::write(&path, DEFAULT_CONFIG_BYTES).
+                    expect("failed to overwrite old config file");
+
+                config = default_config;
+
+                println!("Config replaced!");
+        }
+
+        println!("Config loaded successfully:\n{config:#?}");
+
+        config
+    }
+
+    fn save_config(config: &Config) {
+        let path = get_resource_path(CONFIG_FILENAME);
+
+        let content = toml::to_string_pretty::<Config>(config)
+            .expect("failed to serialize config");
+
+        std::fs::write(path, content).
+            expect("failed to write to config file");
+    }
 
     /// Sets the autostart registry value if `enabled` is true.
     /// If `enabled` is false and an autostart value exists in
@@ -106,9 +163,8 @@ impl App {
     /// to terminate. If `try_graceful` is true, an attempt will be
     /// made to gracefully exit the window before a termination is made.
     fn terminate(&self, window: &mut Window, try_graceful: bool) {
-        // Todo: Get timout from config
-        let timeout = 3500;
-        
+        let timeout = self.config.borrow().graceful_timeout;
+
         if try_graceful {
             println!("Attempting graceful exit, timeout set to {}ms", timeout);
 
@@ -118,7 +174,7 @@ impl App {
             }
         }
         
-        println!("Graceful exit failed, terminating.");
+        println!("Terminating!");
         window.process().terminate()
     }
 
@@ -160,7 +216,7 @@ impl InputEventHandler for App {
                         state.pressed(KeyCode::LeftAlt) &&
                         state.pressed(KeyCode::F4) {
                             if let Some(window) = &mut Window::from_foreground() {
-                                self.terminate(window, true);
+                                self.terminate(window, self.config.borrow().attempt_graceful);
                                 return true;
                             } else {
                                 eprintln!("failed to terminate foreground window: no valid window is in focus");
@@ -180,7 +236,7 @@ impl InputEventHandler for App {
 
                     let (cursor_x, cursor_y) = cursor::position();
                     if let Some(window) = &mut Window::from_point(cursor_x, cursor_y) {
-                        self.terminate(window, true);
+                        self.terminate(window, self.config.borrow().attempt_graceful);
                         printfl!(" Success!");
                     } else {
                         eprintfl!(" Failed to terminate window: no window under mouse pointer");

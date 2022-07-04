@@ -7,6 +7,7 @@ pub mod process;
 pub mod window;
 pub mod cursor;
 pub mod tray;
+pub mod config;
 pub mod registry;
 
 /// Flushed `print!()` macro

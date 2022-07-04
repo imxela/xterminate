@@ -1,0 +1,18 @@
+# Determines whether xterminate will attempt to
+# gracefully exit the process before forcefully
+# terminating it. The amount of time xterminate
+# waits for is determined by the 'timeout' value.
+attempt_graceful = true
+
+# Time period which xterminate waits for the
+# process to exit gracefully before forcefully
+# terminating it, in milliseconds.
+graceful_timeout = 3500
+
+
+# Used for checking coinfig file compatibility
+# with future versions of xterminate.
+[compatibility]
+version_major = 0
+version_minor = 0
+version_patch = 0
