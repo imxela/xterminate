@@ -1,8 +1,10 @@
 pub mod keycode;
 pub mod keystatus;
+pub mod keybind;
 
 pub use keycode::KeyCode;
 pub use keystatus::KeyStatus;
+pub use keybind::Keybind;
 
 use windows::Win32::UI::Input::{
     RAWINPUTDEVICE,
@@ -170,6 +172,11 @@ impl Input {
             DispatchMessageA(&message);
         }
     }}
+
+    /// Returns a shared copy of the application's [KeyState].
+    pub fn keystate(&self) -> KeyState {
+        self.keys.clone()
+    }
 
     pub fn unregister(&self) { unsafe {
         // DestroyWindow triggers the WM_DESTROY message in the

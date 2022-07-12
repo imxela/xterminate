@@ -9,6 +9,15 @@ attempt_graceful = true
 # terminating it, in milliseconds.
 graceful_timeout = 3500
 
+# The below keybinds use Windows virtual-key codes.
+# A complete list of possible values can be found here:
+# https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+[keybinds]
+terminate_immediate = ["VK_LCONTROL", "VK_LMENU", "VK_F4"]
+terminate_click = ["VK_LCONTROL", "VK_LMENU", "VK_END"]
+terminate_click_confirm = ["VK_LBUTTON"]
+terminate_abort = ["VK_ESCAPE"]
+
 
 # Used for checking coinfig file compatibility
 # with future versions of xterminate.

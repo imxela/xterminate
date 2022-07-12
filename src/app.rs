@@ -1,8 +1,9 @@
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::window::Window;
-use crate::input::{Input, KeyCode, KeyStatus, KeyState, InputEventHandler};
+use crate::input::{Input, KeyCode, KeyStatus, KeyState, Keybind, InputEventHandler};
 use crate::tray::{Tray, TrayEvent, TrayEventHandler};
 use crate::cursor;
 use crate::cursor::Cursor;
@@ -28,16 +29,22 @@ enum AppState {
 pub struct App {
     config: Rc<RefCell<Config>>,
     appstate: AppState,
-    cursor_path: String
+    cursor_path: String,
+    keybinds: HashMap<String, Keybind>
 }
 
 impl App {
     /// Creates a new singleton instance of `App` and returns it.
     pub fn new() -> Rc<RefCell<Self>> {
+        let config = Rc::new(RefCell::new(Self::load_config()));
+
+        let keybinds = Self::setup_keybinds(&mut config.borrow_mut());
+
         Rc::new(RefCell::new(Self { 
-            config: Rc::new(RefCell::new(Self::load_config())),
+            config,
             appstate: AppState::Standby, 
-            cursor_path: get_cursor_path()
+            cursor_path: get_cursor_path(),
+            keybinds
         }))
     }
     
@@ -71,6 +78,28 @@ impl App {
         input.unregister();
         tray.delete();
         println!(" Done!");
+    }
+
+    fn setup_keybinds(config: &mut Config) -> HashMap<String, Keybind> {
+        let mut keybinds: HashMap<String, Keybind> = HashMap::new();
+
+        keybinds.insert(String::from("terminate_immediate"), Self::keybind_from_config(&config.keybinds.terminate_immediate));
+        keybinds.insert(String::from("terminate_click"), Self::keybind_from_config(&config.keybinds.terminate_click));
+        keybinds.insert(String::from("terminate_click_confirm"), Self::keybind_from_config(&config.keybinds.terminate_click_confirm));
+        keybinds.insert(String::from("terminate_abort"), Self::keybind_from_config(&config.keybinds.terminate_abort));
+
+        keybinds
+    }
+
+    /// Creates a [Keybind] from a given keybinding in the [Config].
+    fn keybind_from_config(cfg_value: &Vec<String>) -> Keybind {
+        let mut keybind = Keybind::empty();
+
+        for key in cfg_value {
+            keybind.add(KeyCode::from_string(key.as_str()).expect("config contains an invalid keybind (unrecognized key-code)"));
+        }
+
+        keybind
     }
 
     fn load_config() -> Config {
@@ -200,33 +229,28 @@ impl App {
 impl InputEventHandler for App {
     fn handle(&mut self, mut state: KeyState, _keycode: KeyCode, _keystatus: KeyStatus) -> bool {
         match self.appstate {
-            AppState::Standby => { 
-                if state.pressed(KeyCode::LeftControl) &&
-                   state.pressed(KeyCode::LeftAlt) &&
-                   state.pressed(KeyCode::End) {
-                        println!("Activated!");
-                        printfl!("Waiting for trigger...");
+            AppState::Standby => {
+                if self.keybinds["terminate_click"].triggered(&mut state) {
+                    println!("Activated!");
+                    printfl!("Waiting for trigger...");
 
-                        self.appstate = AppState::Active;
-                        self.activate();
+                    self.appstate = AppState::Active;
+                    self.activate();
 
+                    return true;
+                } else if self.keybinds["terminate_immediate"].triggered(&mut state) {
+                    if let Some(window) = &mut Window::from_foreground() {
+                        self.terminate(window, self.config.borrow().attempt_graceful);
                         return true;
-                } 
-                else if state.pressed(KeyCode::LeftControl) &&
-                        state.pressed(KeyCode::LeftAlt) &&
-                        state.pressed(KeyCode::F4) {
-                            if let Some(window) = &mut Window::from_foreground() {
-                                self.terminate(window, self.config.borrow().attempt_graceful);
-                                return true;
-                            } else {
-                                eprintln!("failed to terminate foreground window: no valid window is in focus");
-                                return false;
-                            }
+                    } else {
+                        eprintln!("failed to terminate foreground window: no valid window is in focus");
+                        return false;
+                    }
                 }
             },
 
             AppState::Active => {
-                if state.pressed(KeyCode::LeftMouseButton) {
+                if self.keybinds["terminate_click_confirm"].triggered(&mut state) {
                     println!(" Triggered!");
                     printfl!("Terminating...");
 
@@ -244,7 +268,7 @@ impl InputEventHandler for App {
 
                     self.appstate = AppState::Standby;
                     return true;
-                } else if state.pressed(KeyCode::Escape) {
+                } else if self.keybinds["terminate_abort"].triggered(&mut state) {
                     printfl!("Aborted.");
                     self.appstate = AppState::Standby;
                     self.deactivate();
