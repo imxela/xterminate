@@ -27,17 +27,24 @@
   Once installed, xterminate will always be on standby in the background, ready for the next time you need to terminate a misbehaving application.
 </p>
 
-**<p>Main Features and Todos<p>**
+<br>
 
-  - [x] `CTRL+ALT+END`: Activate xterminate
-  - [x] `Left Mouse Button`: Terminate the window under your mouse cursor (after pressing `CTRL+ALT+END`)
-  - [x] `ESCAPE`: Abort termination (after pressing `CTRL+ALT+END`)
-  - [x] Global, unintrusive, and uninterruptible input handling using Windows' raw input API
-  - [x] A neat tray icon
-  - [ ] `CTRL+ALT+F4`: Immediately terminate the currently in-focus window
-  - [ ] Built-in start with Windows functionality
-  - [ ] Attempt to gracefully exit before terminating
-  - [ ] Configurable keys and settings
+**<p>Features</p>**
+  - [x] Visual guide when terminating windows in the form of a custom cursor
+  - [x] Graceful exit and forced termination of any windowed process
+  - [x] Global, uninterruptible input ensures xterminate always responds to your key-bindings
+  - [x] Configurable keys and settings in an easy-to-use `config.toml` file
+  - [x] Optional start with Windows functionality
+  - [x] A neat tray-icon
+  - [x] Improved `ALT+F4`-equivalent with an added ability to terminate unresponsive windows
+
+<br>
+
+**<p>Default Keybinds</p>**
+  - `CTRL+ALT+END` to enter termination mode, followed by clicking `Left Mouse Button`
+  - In termination mode, click `Left Mouse Button` to terminate any window
+  - In termination mode, press `ESCAPE` to leave termination mode
+  - `CTRL+ALT+F4` to terminate the current window in focus
 
 ---
 
