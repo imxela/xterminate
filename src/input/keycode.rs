@@ -222,6 +222,7 @@ generate_keycodes!(
     (T, VK_T, "T"),
     (U, VK_U, "U"),
     (V, VK_V, "V"),
+    (W, VK_W, "W"),
     (X, VK_X, "X"),
     (Y, VK_Y, "Y"),
     (Z, VK_Z, "Z"),
