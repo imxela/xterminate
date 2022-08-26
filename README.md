@@ -71,8 +71,6 @@ Alternatively, you can clone the repo yourself to wherever you want and run the 
 
 <p align="justify">
   Your executable will be located at <code>xterminate-main\target\release\xterminate.exe</code> along with the resource directory (<code>\res</code>). 
-  Note that the installer currently handles "start with Windows" functionality, 
-  so when building from source, xterminate will not start with Windows as it would otherwise.
 </p>
 
 ---
