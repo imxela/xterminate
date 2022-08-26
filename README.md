@@ -88,4 +88,4 @@ As a result, running xterminate without elevated privileges will cause it to be 
 Simply open your tray-icon menu, right-click xterminate's icon, and press _"Reset cursor"_ to revert to your normal cursor.
 
 **Q: Will xterminate still work if the mouse cursor is hidden?**
-<br>**A:** Yup, it will! Just make sure your mouse cursor is _somewhere_ inside the window you want to terminate before clicking.
+<br>**A:** Yup, it will! Just make sure your mouse cursor is _somewhere_ inside the window you want to terminate before clicking (or use `CTRL+ALT+F4` instead!).
