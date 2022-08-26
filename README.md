@@ -41,7 +41,7 @@
 <br>
 
 **<p>Default Keybinds</p>**
-  - `CTRL+ALT+END` to enter termination mode, followed by clicking `Left Mouse Button`
+  - `CTRL+ALT+END` to enter termination mode
   - In termination mode, click `Left Mouse Button` to terminate any window
   - In termination mode, press `ESCAPE` to leave termination mode
   - `CTRL+ALT+F4` to terminate the current window in focus
