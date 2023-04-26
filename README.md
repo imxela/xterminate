@@ -20,7 +20,7 @@
 ### Usage
 
 <p align="justify">
-  With xterminate, all you have to do to terminate unresponsive applications is press <code>CTRL+ALT+END</code> and xterminate will enter termination mode. Any window you subsequently left-click terminates instantly. No more rebooting when apps or games haywire. Once installed, xterminate will always be on standby in the background, ready for the next time you need to terminate a misbehaving application.
+  With xterminate, all you have to do to terminate unresponsive applications is press <code>CTRL+ALT+END</code> and xterminate will enter termination mode. Any window you subsequently left-click terminates instantly. No more rebooting when apps or games go haywire. Once installed, xterminate will always be on standby in the background, ready for the next time you need to terminate a misbehaving application.
 </p>
 
 <br>
