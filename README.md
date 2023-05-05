@@ -6,11 +6,11 @@
 
 <br>
 
-<p align="center"><a href="https://github.com/alexkarlin/xterminate/releases/latest/download/xterminate-setup.exe">Download</a></p>
+<p align="center"><a href="https://github.com/imxela/xterminate/releases/latest/download/xterminate-setup.exe">Download</a></p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/downloads/alexkarlin/xterminate/total">
-  <img src="https://img.shields.io/github/license/alexkarlin/xterminate">
+  <img src="https://img.shields.io/github/downloads/imxela/xterminate/total">
+  <img src="https://img.shields.io/github/license/imxela/xterminate">
 </p>
 
 <br><br>
@@ -56,13 +56,13 @@ All key-binds can be changed in the `config.toml` file.
 ---
 
 ### Building from source
-If you do not want to use the <a href="https://github.com/alexkarlin/xterminate/releases/">pre-built binaries or installer</a>, you can build xterminate from source using the instructions here.
+If you do not want to use the <a href="https://github.com/imxela/xterminate/releases/">pre-built binaries or installer</a>, you can build xterminate from source using the instructions here.
 
 Before attempting to build xterminate, you need to [download and install Rust](https://www.rust-lang.org/tools/install).
 
 Once Rust is installed, paste this one-liner in `cmd.exe` and it will clone xterminate to your desktop and build the code for you in one go:
 
-    git clone https://github.com/alexkarlin/xterminate.git "%UserProfile%\Desktop\xterminate-main" && cd "%UserProfile%\Desktop\xterminate-main" && build.bat
+    git clone https://github.com/imxela/xterminate.git "%UserProfile%\Desktop\xterminate-main" && cd "%UserProfile%\Desktop\xterminate-main" && build.bat
 
 Alternatively, you can clone the repo yourself to wherever you want and run the `build.bat` script manually.
 

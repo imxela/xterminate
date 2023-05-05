@@ -2,7 +2,7 @@
 name = "xterminate"
 version = "1.1.0"
 edition = "2021"
-authors = ["Alex <alexkarlin.dev@gmail.com> <https://github.com/alexkarlin/>"]
+authors = ["Xela <https://github.com/imxela/>"]
 license-file = "LICENSE"
 readme = "README"
 build = "build.rs"
@@ -34,4 +34,4 @@ winres = "0.1"
 
 [package.metadata.winres]
 OriginalFilename = "xterminate.exe"
-LegalCopyright = "Copyright (c) 2022 Alex Karlsson Lindén, see LICENSE file for more information."
+LegalCopyright = "Copyright (c) 2023 Xela, see LICENSE file for more information."
