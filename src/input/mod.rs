@@ -39,8 +39,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageA,
     DefWindowProcA,
     DestroyWindow, 
-    SetWindowLongPtrA, 
-    GetWindowLongPtrA
+    SetWindowLongPtrW, 
+    GetWindowLongPtrW
 };
 
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
@@ -121,7 +121,7 @@ pub struct Input {
 }
 
 impl Input {
-    pub fn create(event_handler: Rc<RefCell<dyn InputEventHandler>>) -> Self { unsafe {
+    pub fn create(event_handler: Rc<RefCell<dyn InputEventHandler>>) -> Rc<RefCell<Self>> { unsafe {
         let mut wndclass = WNDCLASSEXA::default();
         wndclass.cbSize = std::mem::size_of::<WNDCLASSEXA>() as u32;
         wndclass.hInstance = GetModuleHandleA(PCSTR(std::ptr::null())); // Equivalent to the hInstance parameter passed to WinMain in C/C++
@@ -133,7 +133,7 @@ impl Input {
         if RegisterClassExA(&wndclass) == 0 {
             panic!("input window class registration failed: RegisterClassA() returned NULL (os error code {})", GetLastError().0);
         }
-                
+
         let hwnd = CreateWindowExA(
             Default::default(),
             wndclass.lpszClassName,
@@ -153,14 +153,13 @@ impl Input {
             panic!("window creation failed: CreateWindowExA() returned NULL (os error code {})", GetLastError().0);
         }
 
-        let mut instance = Self {
+        let instance = Rc::new(RefCell::new(Self {
             hwnd,
             keys: KeyState::new(),
             event_handler
-        };
+        }));
 
-        SetWindowLongPtrA(hwnd, GWLP_USERDATA, &mut instance as *mut Input as isize);
-
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, &mut *instance.borrow_mut() as *mut Input as isize);
         instance
     }}
 
@@ -314,7 +313,7 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
                 return DefWindowProcA(hwnd, msg, wparam, lparam);
             }
 
-            let instance = GetWindowLongPtrA(hwnd, GWLP_USERDATA) as *mut Input;
+            let instance = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut Input;
 
             let (keycode, keystatus) = keystate.unwrap();
             instance.as_mut().unwrap().keys.set(keycode, keystatus);

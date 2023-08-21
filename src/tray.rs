@@ -54,8 +54,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetCursorPos,
     LoadImageA, 
     DestroyWindow,
-    SetWindowLongPtrA, 
-    GetWindowLongPtrA
+    SetWindowLongPtrW, 
+    GetWindowLongPtrW
 };
 
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
@@ -98,20 +98,20 @@ pub struct Tray {
 }
 
 impl Tray {
-    pub fn create(icon_filename: &str, event_handler: Rc<RefCell<dyn TrayEventHandler>>) -> Self {
+    pub fn create(icon_filename: &str, event_handler: Rc<RefCell<dyn TrayEventHandler>>) -> Rc<RefCell<Self>> {
         // Create message-only trayicon window
 
         let hwnd = Self::create_window();
         let nid = Self::create_trayicon(hwnd, icon_filename);
 
-        let mut tray = Self {
+        let tray = Rc::new(RefCell::new(Self {
             hwnd: hwnd,
             nid: nid,
             event_handler
-        };
+        }));
 
         // Todo: Move this into create_window()?
-        unsafe { SetWindowLongPtrA(hwnd, GWLP_USERDATA, &mut tray as *mut Tray as isize); }
+        unsafe { SetWindowLongPtrW(hwnd, GWLP_USERDATA, &mut *tray.borrow_mut() as *mut Tray as isize); }
 
         tray
     }
@@ -180,7 +180,7 @@ impl Tray {
         tooltip_str.bytes().zip(tooltip_message.iter_mut()).for_each(|(b, ptr)| *ptr = CHAR(b));
 
         nid.szTip = tooltip_message;
-    
+
         Shell_NotifyIconA(NIM_ADD, &nid);
 
         nid
@@ -191,6 +191,7 @@ impl Tray {
         GetCursorPos(&mut cursor_pos);
 
         let menu_handle = CreatePopupMenu().unwrap();
+
         InsertMenuA(menu_handle, 1, MF_BYPOSITION, TrayEvent::OnMenuSelectResetCursor as usize , "Reset cursor");
 
         let enabled_str = match registry::exists(
@@ -242,7 +243,7 @@ impl Tray {
 }
 
 unsafe extern "system" fn trayicon_input_callback(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
-    let instance = GetWindowLongPtrA(hwnd, GWLP_USERDATA) as *mut Tray;
+    let instance = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut Tray;
 
     match msg {
         WM_USER_TRAYICON => {

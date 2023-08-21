@@ -69,15 +69,14 @@ impl App {
             use windows::Win32::UI::WindowsAndMessaging::WaitMessage;
             unsafe { WaitMessage() };
 
-            input.poll();
-            tray.poll();
+            input.borrow().poll();
+            tray.borrow().poll();
         }
 
         printfl!("Exiting...");
         Self::save_config(&app.borrow_mut().config.borrow_mut());
-        input.unregister();
-        tray.delete();
-        println!(" Done!");
+        input.borrow().unregister();
+        tray.borrow().delete();
     }
 
     fn setup_keybinds(config: &mut Config) -> HashMap<String, Keybind> {
