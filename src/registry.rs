@@ -33,6 +33,8 @@ use windows::Win32::System::Registry::{
     RegQueryValueExA
 };
 
+use crate::logf;
+
 #[derive(Copy, Clone, Debug)]
 #[repr(isize)]
 pub enum HKey {
@@ -63,10 +65,24 @@ pub enum ValueType {
     // MultiSZ = REG_MULTI_SZ.0, // Unsupported because it requires a double null-terminated string
     Sz = REG_SZ.0,
     DWord = REG_DWORD.0,
-    DwordBigEndian = REG_DWORD_BIG_ENDIAN.0,
+    DWordBigEndian = REG_DWORD_BIG_ENDIAN.0,
     QWord = REG_QWORD.0,
     Binary = REG_BINARY.0,
     Link = REG_LINK.0
+}
+
+impl std::fmt::Display for ValueType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match *self {
+            Self::ExpandSZ => "ExpandSZ",
+            Self::Sz => "Sz",
+            Self::DWord => "DWord",
+            Self::DWordBigEndian => "DWordBigEndian",
+            Self::QWord => "QWord",
+            Self::Binary => "Binary",
+            Self::Link => "Link"
+        })
+    }
 }
 
 /// Sets an existing key to the specified value or creates a new one if the specified key does not exist.
@@ -98,7 +114,7 @@ pub fn set_value(root_key: HKey, subkey: &str, name: &str, value_type: ValueType
         );
     }
 
-    println!("Settings registry path '{hkey:?}::{subkey}::{name}' to value '{value}'");
+    logf!("Writing registry value '{}\\{}\\{}' (type: {}) to '{}'", root_key, subkey, name, value_type, value);
 
     if RegSetKeyValueA(
         hkey, 
@@ -117,7 +133,7 @@ pub fn set_value(root_key: HKey, subkey: &str, name: &str, value_type: ValueType
         }
     ).is_err() {
         panic!(
-            "failed to set registry key '{root_key}:{subkey}:{name}' 
+            "failed to set registry key '{root_key}\\{subkey}\\{name}' 
             to '{value}': RegSetKeyValueA() failed (os error {})", 
             GetLastError().0
         );
@@ -125,7 +141,7 @@ pub fn set_value(root_key: HKey, subkey: &str, name: &str, value_type: ValueType
 
     if RegCloseKey(hkey).is_err() {
         panic!(
-            "could not close registry key '{root_key}:{subkey}': RegCloseKey() 
+            "could not close registry key '{root_key}\\{subkey}': RegCloseKey() 
             failed (os error {})", 
             GetLastError().0
         );
@@ -151,25 +167,27 @@ pub fn delete_value(root_key: HKey, subkey: &str, name: &str) { unsafe {
         &mut hkey
     ).is_err() {
         panic!(
-            "could not delete registry value '{root_key}:{subkey}:{name}': 
+            "could not delete registry value '{root_key}\\{subkey}\\{name}': 
             RegOpenKeyExA() (os error {})", 
             GetLastError().0
         );
     }
+
+    logf!("Deleting registry value '{}::{}::{}'", root_key, subkey, name);
 
     if RegDeleteValueA(
         hkey,
         PCSTR(std::ffi::CString::new(name).unwrap().as_bytes().as_ptr())
     ).is_err() {
         panic!(
-            "could not delete registry value '{root_key}:{subkey}:{name}': 
+            "could not delete registry value '{root_key}\\{subkey}\\{name}': 
             RegDeleteValueA() failed (os error {})", 
             GetLastError().0
         );
     }
 
     if RegCloseKey(hkey).is_err() {
-        panic!("failed to close registry key '{root_key}:{subkey}' (os error {})", GetLastError().0);
+        panic!("failed to close registry key '{root_key}\\{subkey}' (os error {})", GetLastError().0);
     }
 } }
 
@@ -192,7 +210,7 @@ pub fn exists(root_key: HKey, subkey: &str, name: Option<&str>) -> bool { unsafe
     // Do not check value if `name` was not supplied
     if name.is_none() {
         if RegCloseKey(hkey).is_err() {
-            panic!("failed to close registry key '{root_key}:{subkey}' (os error {})", GetLastError().0);
+            panic!("failed to close registry key '{root_key}\\{subkey}' (os error {})", GetLastError().0);
         }
 
         return true;
@@ -209,7 +227,7 @@ pub fn exists(root_key: HKey, subkey: &str, name: Option<&str>) -> bool { unsafe
 
 
     if RegCloseKey(hkey).is_err() {
-        panic!("failed to close registry key '{root_key}:{subkey}' (os error {})", GetLastError().0);
+        panic!("failed to close registry key '{root_key}\\{subkey}' (os error {})", GetLastError().0);
     }
 
     result == ERROR_SUCCESS

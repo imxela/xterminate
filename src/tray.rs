@@ -66,7 +66,7 @@ const WM_USER_TRAYICON: u32 = WM_USER + TRAYICON_ID;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::registry;
+use crate::{registry, logf};
 
 #[repr(usize)]
 pub enum TrayEvent {
@@ -99,8 +99,6 @@ pub struct Tray {
 
 impl Tray {
     pub fn create(icon_filename: &str, event_handler: Rc<RefCell<dyn TrayEventHandler>>) -> Rc<RefCell<Self>> {
-        // Create message-only trayicon window
-
         let hwnd = Self::create_window();
         let nid = Self::create_trayicon(hwnd, icon_filename);
 
@@ -137,6 +135,7 @@ impl Tray {
             panic!("tray-icon window class registration failed: RegisterClassA() returned NULL (os error code {})", GetLastError().0);
         }
 
+        logf!("Creating system tray window");
         let hwnd = CreateWindowExA(
             Default::default(),
             wndclass.lpszClassName,
@@ -181,6 +180,7 @@ impl Tray {
 
         nid.szTip = tooltip_message;
 
+        logf!("Creating system tray icon");
         Shell_NotifyIconA(NIM_ADD, &nid);
 
         nid
@@ -190,6 +190,7 @@ impl Tray {
         let mut cursor_pos = POINT::default();
         GetCursorPos(&mut cursor_pos);
 
+        logf!("Creating and populating system tray menu");
         let menu_handle = CreatePopupMenu().unwrap();
 
         InsertMenuA(menu_handle, 1, MF_BYPOSITION, TrayEvent::OnMenuSelectResetCursor as usize , "Reset cursor");

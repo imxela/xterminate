@@ -5,13 +5,10 @@ use std::cell::RefCell;
 use crate::window::Window;
 use crate::input::{Input, KeyCode, KeyStatus, KeyState, Keybind, InputEventHandler};
 use crate::tray::{Tray, TrayEvent, TrayEventHandler};
-use crate::cursor;
+use crate::{cursor, logf};
 use crate::cursor::Cursor;
 use crate::config::Config;
 use crate::registry;
-
-use crate::printfl;
-use crate::eprintfl;
 
 /// The path to the cursor file relative to the executable's working directory
 const CURSOR_FILENAME: &str = "cursor.cur";
@@ -36,9 +33,24 @@ pub struct App {
 impl App {
     /// Creates a new singleton instance of `App` and returns it.
     pub fn new() -> Rc<RefCell<Self>> {
+        crate::logger::initialize();
+
+        logf!("Creating application instance");
+
+        logf!("Loading application configuration");
         let config = Rc::new(RefCell::new(Self::load_config()));
 
+        logf!(
+            "Application configuration version: {}.{}.{}", 
+            config.borrow().compatibility.version_major, 
+            config.borrow().compatibility.version_major, 
+            config.borrow().compatibility.version_major
+        );
+
+        logf!("Setting up keybinds");
         let keybinds = Self::setup_keybinds(&mut config.borrow_mut());
+
+        logf!("Application instance created successfully");
 
         Rc::new(RefCell::new(Self { 
             config,
@@ -50,7 +62,7 @@ impl App {
     
     /// Runs xterminate
     pub fn run(app: Rc<RefCell<Self>>) {
-        println!("Running!");
+        logf!("Running application");
         
         // Retreive the autostart registry value and if it exists
         // trigger an update in case the exeuctable was moved since
@@ -58,9 +70,13 @@ impl App {
         let autostart_enabled = app.borrow().autostart();
         app.borrow_mut().set_autostart(autostart_enabled);
 
+        logf!("Creating input processor");
         let input = Input::create(app.clone());
+
+        logf!("Creating system tray");
         let tray = Tray::create(&get_icon_path(), app.clone());
 
+        logf!("Starting event loop");
         while app.borrow().appstate != AppState::Shutdown {
             // The message loops for input and tray both run
             // on the same thread so we can use WaitMessage()
@@ -73,10 +89,12 @@ impl App {
             tray.borrow().poll();
         }
 
-        printfl!("Exiting...");
+        logf!("Exited event loop, saving config and freeing resources");
         Self::save_config(&app.borrow_mut().config.borrow_mut());
         input.borrow().unregister();
         tray.borrow().delete();
+
+        logf!("Goodbye");
     }
 
     fn setup_keybinds(config: &mut Config) -> HashMap<String, Keybind> {
@@ -109,13 +127,13 @@ impl App {
         let content = match std::fs::read(&path) {
             Ok(v) => v,
             Err(_e) => {
-                println!("No config file found, creating a default one.");
+                logf!("WARNING: No config file found, creating a default one");
 
                 // Create and read the default config
                 std::fs::write(&path, DEFAULT_CONFIG_BYTES)
                     .expect("failed to write default config file to drive");
 
-                println!("Config file created.");
+                logf!("Config file created");
 
                 DEFAULT_CONFIG_BYTES.to_vec()
             }
@@ -128,22 +146,31 @@ impl App {
         if  config.compatibility.version_major < default_config.compatibility.version_major ||
             config.compatibility.version_minor < default_config.compatibility.version_minor ||
             config.compatibility.version_patch < default_config.compatibility.version_patch {
-                println!("Config file compatibility version mismatch, replacing old config with updated default config.");
+                logf!(
+                    "WARNING: Config file compatibility version mismatch, 
+                    replacing old config with updated default config 
+                    ({}.{}.{}) => {}.{}.{})",
+                    config.compatibility.version_major, config.compatibility.version_minor, config.compatibility.version_patch,
+                    default_config.compatibility.version_major, config.compatibility.version_minor, config.compatibility.version_patch
+                );
 
                 std::fs::write(&path, DEFAULT_CONFIG_BYTES).
                     expect("failed to overwrite old config file");
 
                 config = default_config;
 
-                println!("Config replaced!");
+                logf!("Config replaced");
         }
 
-        println!("Config loaded successfully:\n{config:#?}");
+        logf!("Configuration loaded");
+        logf!("Config:\n{config:#?}");
 
         config
     }
 
     fn save_config(config: &Config) {
+        logf!("Writing configuration to disk");
+
         let path = get_resource_path(CONFIG_FILENAME);
 
         let content = toml::to_string_pretty::<Config>(config)
@@ -151,6 +178,8 @@ impl App {
 
         std::fs::write(path, content).
             expect("failed to write to config file");
+
+        logf!("Configuration successfully written to disk");
     }
 
     /// Sets the autostart registry value if `enabled` is true.
@@ -158,6 +187,8 @@ impl App {
     /// the registry, it will be deleted.
     fn set_autostart(&self, enabled: bool) {
         if enabled {
+            logf!("Setting registry autostart value");
+
             registry::set_value(
                 registry::HKey::HKeyCurrentUser, 
                 "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 
@@ -165,11 +196,14 @@ impl App {
                 registry::ValueType::Sz, 
                 get_executable_path().as_str()
             );
-        } else if registry::exists(
+
+        } else if registry::exists( // Todo: duplicated code, fn autostart() already exists
             registry::HKey::HKeyCurrentUser, 
             "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 
             Some("xterminate")
         ) {
+            logf!("Deleting registry autostart value");
+
             registry::delete_value(
                 registry::HKey::HKeyCurrentUser, 
                 "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", 
@@ -194,25 +228,27 @@ impl App {
         let timeout = self.config.borrow().graceful_timeout;
 
         if try_graceful {
-            println!("Attempting graceful exit, timeout set to {}ms", timeout);
+            logf!("Attempting graceful exit, timeout set to {}ms", timeout);
 
             if window.process().try_exit(timeout) == true {
-                println!("Graceful exit sucessful!");
+                logf!("Graceful exit successful");
                 return;
             }
         }
         
-        println!("Terminating!");
+        logf!("Forcefully terminating");
         window.process().terminate()
     }
 
     pub fn shutdown(&mut self) {
+        logf!("Setting AppState to Shutdown");
         self.appstate = AppState::Shutdown;
     }
 
     /// Called when going from `AppState::Sleeping` to `ÀppState::Active`.
     /// Sets the system cursors to the xterminate cursor.
     pub fn activate(&self) {
+        logf!("Switching to active cursor");
         // Customize the system cursors to signify that xterminate is active
         let custom_cursor = Cursor::load_from_file(self.cursor_path.as_str()).expect("failed to load default cursor from file");
         cursor::set_all(&custom_cursor);
@@ -221,6 +257,7 @@ impl App {
     /// Called if the user presses the escape key while in the `AppState::Active` state.
     /// Resets the cursor back to system defaults.
     pub fn deactivate(&self) {
+        logf!("Switching to normal cursor");
         cursor::reset();
     }
 }
@@ -230,19 +267,21 @@ impl InputEventHandler for App {
         match self.appstate {
             AppState::Standby => {
                 if self.keybinds["terminate_click"].triggered(&mut state) {
-                    println!("Activated!");
-                    printfl!("Waiting for trigger...");
+                    logf!("Termination mode activated by user");
 
                     self.appstate = AppState::Active;
                     self.activate();
 
                     return true;
                 } else if self.keybinds["terminate_immediate"].triggered(&mut state) {
+                    logf!("Immediate termination triggered by user");
+
                     if let Some(window) = &mut Window::from_foreground() {
                         self.terminate(window, self.config.borrow().attempt_graceful);
+                        logf!("Terminated successfully");
                         return true;
                     } else {
-                        eprintln!("failed to terminate foreground window: no valid window is in focus");
+                        logf!("ERROR: failed to terminate foreground window: no valid window is in focus");
                         return false;
                     }
                 }
@@ -250,8 +289,7 @@ impl InputEventHandler for App {
 
             AppState::Active => {
                 if self.keybinds["terminate_click_confirm"].triggered(&mut state) {
-                    println!(" Triggered!");
-                    printfl!("Terminating...");
+                    logf!("Termination confirmed by user");
 
                     // Terminate process under the cursor and reset
                     // the system cursors back to the default ones.
@@ -260,15 +298,15 @@ impl InputEventHandler for App {
                     let (cursor_x, cursor_y) = cursor::position();
                     if let Some(window) = &mut Window::from_point(cursor_x, cursor_y) {
                         self.terminate(window, self.config.borrow().attempt_graceful);
-                        printfl!(" Success!");
+                        logf!("Terminated successfully");
                     } else {
-                        eprintfl!(" Failed to terminate window: no window under mouse pointer");
+                        logf!("ERROR: Failed to terminate: no window under mouse pointer");
                     }
 
                     self.appstate = AppState::Standby;
                     return true;
                 } else if self.keybinds["terminate_abort"].triggered(&mut state) {
-                    printfl!("Aborted.");
+                    logf!("Termination aborted by user");
                     self.appstate = AppState::Standby;
                     self.deactivate();
 
@@ -278,6 +316,7 @@ impl InputEventHandler for App {
 
             AppState::Shutdown => {
                 // Do nothing
+                logf!("Entered shutdown state");
             }
         }
 
@@ -294,8 +333,8 @@ impl TrayEventHandler for App {
             },
 
             TrayEvent::OnMenuSelectStartWithWindows => {
+                logf!("Setting start with Windows to '{}'", self.autostart());
                 self.set_autostart(!self.autostart());
-                println!("Start with Windows set to '{}'", self.autostart());
             },
 
             TrayEvent::OnMenuSelectResetCursor => {
@@ -310,23 +349,37 @@ impl TrayEventHandler for App {
 }
 
 /// Returns the absolute path of the cursor file.
-fn get_cursor_path() -> String {
+pub fn get_cursor_path() -> String {
     get_resource_path(CURSOR_FILENAME)
 }
 
-fn get_icon_path() -> String {
+pub fn get_icon_path() -> String {
     get_resource_path(ICON_FILENAME)
 }
 
-fn get_executable_path() -> String {
+pub fn get_executable_path() -> String {
     std::env::current_exe().expect("failed to get path to executable")
         .display()
         .to_string()
 }
 
 /// Returns the absolute path of a file relative to the 'res' folder
-fn get_resource_path(filename: &str) -> String {
-    let relative = std::path::PathBuf::from(format!("res/{}", filename));
+/// Equivalent to calling `make_rel_path_abs("res/<filename>")`
+pub fn get_resource_path(path: &str) -> String {
+    // let relative = std::path::PathBuf::from(format!("res/{}", filename));
+    // let mut absolute = std::env::current_exe().expect("failed to get path to executable");
+    // absolute.pop(); // Remove the executable filename to get the root directory
+    // absolute.push(relative); // Add the relative path to the root directory
+
+    // absolute.display().to_string()
+
+    make_rel_path_abs(format!("res/{}", path).as_str())
+}
+
+/// Returns the absolute path of a file or directory
+/// relative to the root application directory.
+pub fn make_rel_path_abs(filename: &str) -> String {
+    let relative = std::path::PathBuf::from(format!("{}", filename));
     let mut absolute = std::env::current_exe().expect("failed to get path to executable");
     absolute.pop(); // Remove the executable filename to get the root directory
     absolute.push(relative); // Add the relative path to the root directory

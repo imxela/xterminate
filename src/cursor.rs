@@ -50,6 +50,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 
 use crate::error::{AppError, AppResult};
+use crate::logf;
 
 pub enum CursorType {
     AppStarting,
@@ -92,7 +93,7 @@ impl Cursor {
         let hcursor = unsafe { 
             LoadImageA(
                 None,
-                std::mem::transmute::<PCWSTR, PCSTR>(get_idc(cursor_type)),
+                std::mem::transmute::<PCWSTR, PCSTR>(get_idc(&cursor_type)),
                 IMAGE_CURSOR,
                 0,
                 0,
@@ -106,6 +107,8 @@ impl Cursor {
     /// Loads a cursor from the specified file. If the file does not exist
     /// or is not a valid cursor file, this method returns an `Err(...)`.
     pub fn load_from_file(filename: &str) -> AppResult<Self> {
+        logf!("Loading cursor image from file (path: {})", filename);
+
         let hcursor = unsafe {
             LoadImageA(
                 HINSTANCE { 0: 0 }, 
@@ -145,8 +148,10 @@ impl Cursor {
 /// 
 /// This function panics if the internal call to `SetSystemCursor()` returns `false`.
 pub fn set(cursor_type: CursorType, cursor: &Cursor) {
+    logf!("Setting cursor (idc: {})", get_idc(&cursor_type).0 as isize);
+
     let success = unsafe {
-        SetSystemCursor(HCURSOR(cursor.handle), get_ocr(cursor_type)).as_bool()
+        SetSystemCursor(HCURSOR(cursor.handle), get_ocr(&cursor_type)).as_bool()
     };
 
     if !success {
@@ -156,6 +161,8 @@ pub fn set(cursor_type: CursorType, cursor: &Cursor) {
 
 /// Sets all the system cursor types to the specified cursor
 pub fn set_all(cursor: &Cursor) {
+    logf!("Setting all cursors");
+
     // This is terrible but it works
     set(CursorType::AppStarting, &cursor.copy());
     set(CursorType::Normal, &cursor.copy());
@@ -179,6 +186,8 @@ pub fn set_all(cursor: &Cursor) {
 /// 
 /// This function panics if the internal call to `SystemParametersInfoA()` returns `false`.
 pub fn reset() {
+    logf!("Resetting cursors");
+
     let success = unsafe {
         SystemParametersInfoA(SPI_SETCURSORS, 0, std::ptr::null_mut(), SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0)).as_bool()
     };
@@ -189,7 +198,7 @@ pub fn reset() {
 }
 
 /// Converts a [CursorType] to a Windows `OCR_XXX` value.
-fn get_ocr(cursor_type: CursorType) -> SYSTEM_CURSOR_ID {
+fn get_ocr(cursor_type: &CursorType) -> SYSTEM_CURSOR_ID {
     match cursor_type {
         CursorType::AppStarting => OCR_APPSTARTING,
         CursorType::Normal => OCR_NORMAL,
@@ -210,7 +219,7 @@ fn get_ocr(cursor_type: CursorType) -> SYSTEM_CURSOR_ID {
 
 
 /// Converts a [CursorType] to a Windows `IDC_XXX` value.
-fn get_idc(cursor_type: CursorType) -> PCWSTR {
+fn get_idc(cursor_type: &CursorType) -> PCWSTR {
     match cursor_type {
         CursorType::AppStarting => IDC_APPSTARTING,
         CursorType::Normal => IDC_ARROW,

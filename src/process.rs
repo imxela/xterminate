@@ -30,6 +30,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_CLOSE
 };
 
+use crate::logf;
+
 pub struct Process {
     id: u32,
     handle: isize
@@ -42,6 +44,7 @@ impl Process {
     /// 
     /// This function panics if the internal call to `OpenProcess()` returns a [HANDLE] of value `0`.
     pub fn open(pid : u32) -> Self {
+        logf!("Opening process '{}'", pid);
         let handle = unsafe {
             OpenProcess(PROCESS_TERMINATE | PROCESS_SYNCHRONIZE, false, pid)
         }.expect(format!("failed to open target process ({}) (system error {})", pid, unsafe { GetLastError().0 }).as_str());
@@ -56,6 +59,8 @@ impl Process {
     /// message to all associated windows. Returns true if the process
     /// exits or, false if it fails or if the timeout is exceeded.
     pub fn try_exit(&mut self, timeout_ms: u32) -> bool { unsafe {
+        logf!("Trying to close process' (pid: {}) windows gracefully", self.id);
+
         EnumWindows(Some(Self::enumerate_windows_cb), LPARAM(self.id() as isize));
 
         let result = WaitForSingleObject(HANDLE(self.handle()), timeout_ms);
@@ -78,6 +83,8 @@ impl Process {
         if wnd_process_id == lparam.0 as u32 {
             EnumChildWindows(hwnd, Some(Self::enumerate_child_windows_cb), LPARAM(0));
 
+            logf!("Sending WM_CLOSE to window (hwnd: {})", hwnd.0);
+
             if !SendNotifyMessageA(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0)).as_bool() {
                 panic!("failed to send WM_CLOSE message to window: SendNotifyMessageA() returned false (os error {})", GetLastError().0);
             }
@@ -88,6 +95,8 @@ impl Process {
     }
 
     unsafe extern "system" fn enumerate_child_windows_cb(hwnd: HWND, _lparam: LPARAM) -> BOOL {
+        logf!("Sending WM_CLOSE to child window (hwnd: {})", hwnd.0);
+
         if !SendNotifyMessageA(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0)).as_bool() {
             panic!("failed to send WM_CLOSE message to window: SendNotifyMessageA() returned false (os error {})", GetLastError().0);
         }
@@ -101,6 +110,8 @@ impl Process {
     /// 
     /// This method panics if the internal call to `TerminateProcess()` returns ´false´.
     pub fn terminate(&self) {
+        logf!("Terminating process (pid: {})", self.id);
+
         let success = unsafe { 
             TerminateProcess(HANDLE { 0: self.handle }, ERROR_APP_HANG.0).as_bool()
         };

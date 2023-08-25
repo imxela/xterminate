@@ -41,8 +41,6 @@ impl Keybind {
             }
         }
 
-        println!("Triggered!");
-
         // All keys are pressed!
         true
     }

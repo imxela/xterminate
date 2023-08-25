@@ -6,6 +6,8 @@ pub use keycode::KeyCode;
 pub use keystatus::KeyStatus;
 pub use keybind::Keybind;
 
+use crate::logf;
+
 use windows::Win32::UI::Input::{
     RAWINPUTDEVICE,
     RAWINPUTHEADER,
@@ -134,6 +136,7 @@ impl Input {
             panic!("input window class registration failed: RegisterClassA() returned NULL (os error code {})", GetLastError().0);
         }
 
+        logf!("Creating input processing message-only window");
         let hwnd = CreateWindowExA(
             Default::default(),
             wndclass.lpszClassName,
@@ -212,6 +215,8 @@ fn process_mouse_input(mouse: &RAWMOUSE) -> Option<(KeyCode, KeyStatus)> {
 unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
         WM_CREATE => {
+            logf!("Recieved WM_CREATE message");
+
             let mut devices = [RAWINPUTDEVICE::default(); 2];
 
             let keyboard_device = &mut devices[0];
@@ -227,6 +232,7 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
             mouse_device.usUsage = HID_USAGE_GENERIC_MOUSE;
             mouse_device.hwndTarget = hwnd;
             
+            logf!("Registering raw input devices");
             RegisterRawInputDevices(&devices, std::mem::size_of::<RAWINPUTDEVICE>() as u32)
                 .expect(format!("RegisterRawInputDevices() failed: {}", GetLastError().0).as_str());
 
@@ -234,6 +240,8 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
         },
 
         WM_DESTROY => {
+            logf!("Recieved WM_DESTROY message");
+
             let mut devices = [RAWINPUTDEVICE::default(); 2];
 
             let keyboard_device = &mut devices[0];
@@ -249,6 +257,7 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
             mouse_device.usUsage = HID_USAGE_GENERIC_MOUSE;
             mouse_device.hwndTarget = HWND(0);
         
+            logf!("Unregistering raw input devices");
             RegisterRawInputDevices(&devices, std::mem::size_of::<RAWINPUTDEVICE>() as u32)
                 .expect(format!("RegisterRawInputDevices() failed: {}", GetLastError().0).as_str());
 
@@ -258,6 +267,7 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
         WM_INPUT => {
             let mut dwsize = u32::default();
 
+            // Todo: Ensure panics are actually logged properly
             if GetRawInputData(
                 std::mem::transmute::<LPARAM, HRAWINPUT>(lparam),
                 RID_INPUT,
@@ -302,6 +312,7 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
                 _ => {
                     // Should (knock on wood) be impossible since 'dwType' can only
                     // be any of the above three values acording to Windows docs
+                    // Todo: Maybe turn this into a lerror!() and return instead?
                     panic!("unexpected branching: 'RAWINPUT::header::dwType' contains a value that is not 'RIM_TYPEKEYBOARD', 'RIM_TYPEMOUSE' or 'RIM_TYPEHID'");
                 }
             }
@@ -323,6 +334,7 @@ unsafe extern "system" fn raw_input_callback(hwnd: HWND, msg: u32, wparam: WPARA
             let handler = &mut instance.as_mut().unwrap().event_handler;
             let processed = handler.as_ref().borrow_mut().handle(instance.as_mut().unwrap().keys.clone(), keycode, keystatus);
             if processed {
+                logf!("Processed and consumed relevant input: ({}, {})", keycode, keystatus);
                 return LRESULT(0);
             }
 
