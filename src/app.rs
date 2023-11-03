@@ -364,9 +364,54 @@ impl TrayEventHandler for App {
                 cursor::reset();
             },
 
+            TrayEvent::OnMenuSelectOpenConfig => {
+                open_config_file();
+            },
+
             TrayEvent::OnMenuSelectEnterTerminationMode => {
                 self.termination_mode_activate();
             }
+        }
+    }
+}
+
+/// Open xterminate's 'config.toml' file for editing in notepad.exe.
+pub fn open_config_file() {
+    use windows::core::{ PCSTR, PSTR };
+    use windows::Win32::Foundation::GetLastError;
+
+    use windows::Win32::System::Threading::{
+        CreateProcessA,
+        PROCESS_CREATION_FLAGS,
+        STARTUPINFOA,
+        PROCESS_INFORMATION
+    };
+
+    let mut c_filepath = String::from("notepad.exe ");
+    c_filepath.push_str(get_resource_path(CONFIG_FILENAME).as_str());
+    c_filepath.push('\0');
+
+    let c_notepad_path = "C:\\Windows\\notepad.exe\0";
+
+    let mut si = STARTUPINFOA::default();
+    let mut pi = PROCESS_INFORMATION::default();
+
+    unsafe {
+        let result = CreateProcessA(
+            PCSTR(c_notepad_path.as_ptr()),
+            PSTR(c_filepath.as_mut_ptr()),
+            std::ptr::null(),
+            std::ptr::null(),
+            false,
+            PROCESS_CREATION_FLAGS(0),
+            std::ptr::null(),
+            PCSTR(std::ptr::null()),
+            &mut si,
+            &mut pi
+        ).0 == 1;
+
+        if !result {
+            logf!("ERROR: Failed to open config file in notepad.exe (OS Error: {})", GetLastError().0);
         }
     }
 }

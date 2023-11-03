@@ -80,6 +80,7 @@ pub enum TrayEvent {
     OnMenuSelectExit = 0,
     OnMenuSelectStartWithWindows = 1,
     OnMenuSelectResetCursor = 2,
+    OnMenuSelectOpenConfig = 3,
     OnMenuSelectEnterTerminationMode = 4
 }
 
@@ -93,6 +94,7 @@ impl From<u16> for TrayEvent {
             0 => Self::OnMenuSelectExit,
             1 => Self::OnMenuSelectStartWithWindows,
             2 => Self::OnMenuSelectResetCursor,
+            3 => Self::OnMenuSelectOpenConfig,
             4 => Self::OnMenuSelectEnterTerminationMode,
             _ => panic!("Invalid enum value '{}'", v)
         }
@@ -205,6 +207,7 @@ impl Tray {
         let menu_handle = CreatePopupMenu().unwrap();
 
         InsertMenuA(menu_handle, 1, MF_BYPOSITION, TrayEvent::OnMenuSelectResetCursor as usize , "Reset cursor");
+        InsertMenuA(menu_handle, 2, MF_BYPOSITION, TrayEvent::OnMenuSelectOpenConfig as usize, "Open config...");
 
         InsertMenuA(menu_handle, 3, MF_BYPOSITION | MF_SEPARATOR, 0, PCSTR::default());
 
