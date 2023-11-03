@@ -1,7 +1,7 @@
 use crate::input::KeyCode;
 use crate::input::KeyState;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Keybind {
     keys: Vec<KeyCode>
 }
@@ -43,5 +43,31 @@ impl Keybind {
 
         // All keys are pressed!
         true
+    }
+
+    /// Returns the keybinds as a Vec of [KeyCode]s.
+    pub fn keycodes(self) -> Vec<KeyCode> {
+        self.keys
+    }
+}
+
+impl std::fmt::Display for Keybind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // write!(f, "{}",)
+
+        let mut formatted = String::new();
+
+        let mut is_first: bool = true;
+        for keycode in &self.keys {
+            if !is_first {
+                formatted.push_str(" + ")
+            }
+
+            formatted.push_str(keycode.to_string().as_str());
+
+            is_first = false;
+        }
+
+        write!(f, "{}", formatted)
     }
 }

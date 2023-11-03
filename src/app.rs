@@ -74,7 +74,7 @@ impl App {
         let input = Input::create(app.clone());
 
         logf!("Creating system tray");
-        let tray = Tray::create(&get_icon_path(), app.clone());
+        let tray = Tray::create(&get_icon_path(), app.clone(), app.borrow().keybinds.clone());
 
         logf!("Starting event loop");
         while app.borrow().appstate != AppState::Shutdown {
@@ -247,18 +247,61 @@ impl App {
 
     /// Called when going from `AppState::Sleeping` to `ÀppState::Active`.
     /// Sets the system cursors to the xterminate cursor.
-    pub fn activate(&self) {
+    pub fn termination_mode_activate(&mut self) {
+        logf!("Termination mode activated by user");
+        self.appstate = AppState::Active;
+
         logf!("Switching to active cursor");
         // Customize the system cursors to signify that xterminate is active
         let custom_cursor = Cursor::load_from_file(self.cursor_path.as_str()).expect("failed to load default cursor from file");
         cursor::set_all(&custom_cursor);
     }
 
+    /// Called when the termination mode is active (AppState = Active) and 
+    /// the confirmation keybind is pressed by the user. This will trigger
+    /// termination of the window the mouse cursor is currently hovering over.
+    pub fn termination_mode_confirm(&mut self) {
+        logf!("Termination confirmed by user");
+
+        // Terminate process under the cursor and reset
+        // the system cursors back to the default ones.
+        cursor::reset();
+
+        let (cursor_x, cursor_y) = cursor::position();
+        if let Some(window) = &mut Window::from_point(cursor_x, cursor_y) {
+            self.terminate(window, self.config.borrow().attempt_graceful);
+            logf!("Terminated successfully");
+        } else {
+            logf!("ERROR: Failed to terminate: no window under mouse pointer");
+        }
+
+        self.appstate = AppState::Standby;
+    }
+
     /// Called if the user presses the escape key while in the `AppState::Active` state.
     /// Resets the cursor back to system defaults.
-    pub fn deactivate(&self) {
+    pub fn termination_mode_deactivate(&mut self) {
+        logf!("Termination aborted by user");
+        self.appstate = AppState::Standby;
+
         logf!("Switching to normal cursor");
         cursor::reset();
+    }
+
+    /// Called when the user presses the immediate/active termination keybind
+    /// or triggers it manually from the tray menu. Responsible for terminating
+    /// the currently focused window.
+    pub fn terminate_active(&mut self) -> bool {
+        logf!("Immediate termination triggered by user");
+
+        if let Some(window) = &mut Window::from_foreground() {
+            self.terminate(window, self.config.borrow().attempt_graceful);
+            logf!("Terminated successfully");
+            return true;
+        } else {
+            logf!("ERROR: failed to terminate foreground window: no valid window is in focus");
+            return false;
+        }
     }
 }
 
@@ -267,48 +310,24 @@ impl InputEventHandler for App {
         match self.appstate {
             AppState::Standby => {
                 if self.keybinds["terminate_click"].triggered(&mut state) {
-                    logf!("Termination mode activated by user");
-
-                    self.appstate = AppState::Active;
-                    self.activate();
-
+                    self.termination_mode_activate();
                     return true;
                 } else if self.keybinds["terminate_immediate"].triggered(&mut state) {
-                    logf!("Immediate termination triggered by user");
-
-                    if let Some(window) = &mut Window::from_foreground() {
-                        self.terminate(window, self.config.borrow().attempt_graceful);
-                        logf!("Terminated successfully");
-                        return true;
-                    } else {
-                        logf!("ERROR: failed to terminate foreground window: no valid window is in focus");
-                        return false;
-                    }
+                    return self.terminate_active();
                 }
             },
 
             AppState::Active => {
                 if self.keybinds["terminate_click_confirm"].triggered(&mut state) {
-                    logf!("Termination confirmed by user");
+                    self.termination_mode_confirm();
 
-                    // Terminate process under the cursor and reset
-                    // the system cursors back to the default ones.
-                    cursor::reset();
-
-                    let (cursor_x, cursor_y) = cursor::position();
-                    if let Some(window) = &mut Window::from_point(cursor_x, cursor_y) {
-                        self.terminate(window, self.config.borrow().attempt_graceful);
-                        logf!("Terminated successfully");
-                    } else {
-                        logf!("ERROR: Failed to terminate: no window under mouse pointer");
-                    }
-
-                    self.appstate = AppState::Standby;
                     return true;
                 } else if self.keybinds["terminate_abort"].triggered(&mut state) {
-                    logf!("Termination aborted by user");
-                    self.appstate = AppState::Standby;
-                    self.deactivate();
+                    // logf!("Termination aborted by user");
+                    // self.appstate = AppState::Standby;
+                    // self.deactivate();
+
+                    self.termination_mode_deactivate();
 
                     return true;
                 }
@@ -343,6 +362,10 @@ impl TrayEventHandler for App {
                 }
                 
                 cursor::reset();
+            },
+
+            TrayEvent::OnMenuSelectEnterTerminationMode => {
+                self.termination_mode_activate();
             }
         }
     }
@@ -373,7 +396,7 @@ pub fn get_resource_path(path: &str) -> String {
 
     // absolute.display().to_string()
 
-    make_rel_path_abs(format!("res/{}", path).as_str())
+    make_rel_path_abs(format!("res\\{}", path).as_str())
 }
 
 /// Returns the absolute path of a file or directory

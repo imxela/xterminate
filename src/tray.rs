@@ -33,6 +33,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     IMAGE_ICON,
     LR_LOADFROMFILE,
     MF_BYPOSITION,
+    MF_SEPARATOR,
+    MF_DISABLED,
     PM_REMOVE,
     TPM_BOTTOMALIGN,
     WM_COMMAND,
@@ -65,14 +67,20 @@ const WM_USER_TRAYICON: u32 = WM_USER + TRAYICON_ID;
 
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::HashMap;
 
-use crate::{registry, logf};
+use crate::{
+    registry,
+    logf,
+    input::Keybind
+};
 
 #[repr(usize)]
 pub enum TrayEvent {
     OnMenuSelectExit = 0,
     OnMenuSelectStartWithWindows = 1,
-    OnMenuSelectResetCursor = 2
+    OnMenuSelectResetCursor = 2,
+    OnMenuSelectEnterTerminationMode = 4
 }
 
 pub trait TrayEventHandler {
@@ -85,6 +93,7 @@ impl From<u16> for TrayEvent {
             0 => Self::OnMenuSelectExit,
             1 => Self::OnMenuSelectStartWithWindows,
             2 => Self::OnMenuSelectResetCursor,
+            4 => Self::OnMenuSelectEnterTerminationMode,
             _ => panic!("Invalid enum value '{}'", v)
         }
     }
@@ -94,18 +103,20 @@ pub struct Tray {
     hwnd: HWND,
     nid: NOTIFYICONDATAA,
 
-    event_handler: Rc<RefCell<dyn TrayEventHandler>>
+    event_handler: Rc<RefCell<dyn TrayEventHandler>>,
+    keybinds: HashMap<String, Keybind>
 }
 
 impl Tray {
-    pub fn create(icon_filename: &str, event_handler: Rc<RefCell<dyn TrayEventHandler>>) -> Rc<RefCell<Self>> {
+    pub fn create(icon_filename: &str, event_handler: Rc<RefCell<dyn TrayEventHandler>>, keybinds: HashMap<String, Keybind>) -> Rc<RefCell<Self>> {
         let hwnd = Self::create_window();
         let nid = Self::create_trayicon(hwnd, icon_filename);
 
         let tray = Rc::new(RefCell::new(Self {
             hwnd: hwnd,
             nid: nid,
-            event_handler
+            event_handler,
+            keybinds
         }));
 
         // Todo: Move this into create_window()?
@@ -195,6 +206,16 @@ impl Tray {
 
         InsertMenuA(menu_handle, 1, MF_BYPOSITION, TrayEvent::OnMenuSelectResetCursor as usize , "Reset cursor");
 
+        InsertMenuA(menu_handle, 3, MF_BYPOSITION | MF_SEPARATOR, 0, PCSTR::default());
+
+        let terminate_click_keybind = self.keybinds.get("terminate_click").unwrap().to_string();
+        let terminate_immediate_keybind = self.keybinds.get("terminate_immediate").unwrap().to_string();
+        
+        InsertMenuA(menu_handle, 4, MF_BYPOSITION, TrayEvent::OnMenuSelectEnterTerminationMode as usize, format!("Enter termination mode ({})", terminate_click_keybind));
+        InsertMenuA(menu_handle, 5, MF_BYPOSITION | MF_DISABLED, 0, format!("Terminate active window ({})", terminate_immediate_keybind));
+        
+        InsertMenuA(menu_handle, 6, MF_BYPOSITION | MF_SEPARATOR, 0, PCSTR::default());
+
         let enabled_str = match registry::exists(
             registry::HKey::HKeyCurrentUser,
             "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
@@ -204,9 +225,10 @@ impl Tray {
             false => "OFF"
         };
 
-        InsertMenuA(menu_handle, 2, MF_BYPOSITION, TrayEvent::OnMenuSelectStartWithWindows as usize, format!("Start with Windows ({enabled_str})"));
-        InsertMenuA(menu_handle, 3, MF_BYPOSITION, TrayEvent::OnMenuSelectExit as usize, "Exit");
-        
+        InsertMenuA(menu_handle, 7, MF_BYPOSITION, TrayEvent::OnMenuSelectStartWithWindows as usize, format!("Start with Windows ({enabled_str})"));
+
+        InsertMenuA(menu_handle, 8, MF_BYPOSITION, TrayEvent::OnMenuSelectExit as usize, "Exit");
+
         // Required or the popup menu won't close properly
         SetForegroundWindow(self.hwnd);
 
