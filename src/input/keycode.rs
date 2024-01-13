@@ -1,21 +1,21 @@
-/// Automatically generates the [KeyCode] enum, populates it with the
+/// Automatically generates the [`KeyCode`] enum, populates it with the
 /// specified key-codes, and implement conversion functions for them.
 /// In order for xterminate to recognize any keyboard or mouse button
 /// it must first be defined in a call to this macro.
-/// 
+///
 /// # Arguments
-/// 
-/// * `enum` - The name of the KeyCode used for the enum value
-/// * `identifier` - The virtual-key code message (`VK_`) corresponding to the KeyCode
-/// * `string` - A pretty-print string literal for the KeyCode
-/// * `ri_identifier` - An optional list of raw-input messages (`RI_`) corresponding to the KeyCode.
-/// 
+///
+/// * `enum` - The name of the [`KeyCode`] used for the enum value
+/// * `identifier` - The virtual-key code message (`VK_`) corresponding to the [`KeyCode`]
+/// * `string` - A pretty-print string literal for the `KeyCode`
+/// * `ri_identifier` - An optional list of raw-input messages (`RI_`) corresponding to the [`KeyCode`].
+///
 /// # Notes
-/// 
+///
 /// The `ri_identifier` parameter must only be specified for virtual-key codes whose
 /// constants differ when using raw-input. One such example is the left mouse button
-/// which normally generates the `VK_LBUTTON` message but in raw-input mode instead
-/// generates `RI_MOUSE_BUTTON_1_DOWN` and `RI_MOUSE_BUTTON_1_UP` messages. By
+/// which normally generates the [`VK_LBUTTON`] message but in raw-input mode instead
+/// generates [`RI_MOUSE_BUTTON_1_DOWN`] and [`RI_MOUSE_BUTTON_1_UP`] messages. By
 /// specifying these, the macro implements conversion functions associated with
 /// the specified `enum` so the `RI_` messages can be converted to `VK_` where needed.
 macro_rules! generate_keycodes {
@@ -28,13 +28,13 @@ macro_rules! generate_keycodes {
 
         as_item! {
             #[derive(Eq, PartialEq, Hash, Clone, Copy, Debug)]
-            pub enum KeyCode { 
-                $($enum = $identifier.0 as isize,)* 
+            pub enum KeyCode {
+                $($enum = $identifier.0 as isize,)*
             }
         }
 
         impl KeyCode {
-            /// Constructs a new KeyCode from a virtual-key code (`VK_`) message.
+            /// Constructs a new [`KeyCode`] from a virtual-key code (`VK_`) message.
             /// A list of possible constants this function accepts can be found
             /// [here](https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes).
             pub fn from_vkey(vkey: u16) -> Option<KeyCode> {
@@ -43,8 +43,8 @@ macro_rules! generate_keycodes {
                 }
             }
 
-            /// Constructs a new KeyCode from a raw-input (`RI_`) message.
-            /// A list of possible constants this function accepts can be found 
+            /// Constructs a new [`KeyCode`] from a raw-input (`RI_`) message.
+            /// A list of possible constants this function accepts can be found
             /// [here](https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawmouse)
             /// under the `DUMMYUNIONNAME.DUMMYSTRUCTNAME.usButtonFlags` section.
             pub fn from_ri(ri: u32) -> Option<KeyCode> {
@@ -53,7 +53,7 @@ macro_rules! generate_keycodes {
                 }
             }
 
-            /// Construct a KeyCode from a string representation of a virtual key-code message (`VK`).
+            /// Construct a [`KeyCode`] from a string representation of a virtual key-code message (`VK`).
             /// List of possible virtual-key code (VK_) constants can be found
             /// [here](https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes).
             pub fn from_string(string: &str) -> Option<KeyCode> {
@@ -81,21 +81,22 @@ macro_rules! generate_keycodes {
             $($identifier,)*
         };
 
-        use windows::Win32::UI::WindowsAndMessaging::{  
+        use windows::Win32::UI::WindowsAndMessaging::{
             $($($($ri_identifier,)*)?)*
         };
 
         as_item! {
             #[derive(Eq, PartialEq, Hash, Clone, Copy, Debug)]
-            pub enum KeyCode { 
-                $($enum = $identifier.0 as isize,)* 
+            pub enum KeyCode {
+                $($enum = $identifier.0 as isize,)*
             }
         }
 
         impl KeyCode {
-            /// Constructs a new KeyCode from a virtual-key code (`VK_`) message.
+            /// Constructs a new [`KeyCode`] from a virtual-key code (`VK_`) message.
             /// A list of possible constants this function accepts can be found
             /// [here](https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes).
+            #[must_use]
             pub fn from_vkey(vkey: u16) -> Option<KeyCode> {
                 match VIRTUAL_KEY(vkey) {
                     $($identifier => Some(KeyCode::$enum),)*
@@ -104,10 +105,11 @@ macro_rules! generate_keycodes {
                 }
             }
 
-            /// Constructs a new KeyCode from a raw-input (`RI_`) message.
-            /// A list of possible constants this function accepts can be found 
+            /// Constructs a new [`KeyCode`] from a raw-input (`RI_`) message.
+            /// A list of possible constants this function accepts can be found
             /// [here](https://docs.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-rawmouse)
             /// under the `DUMMYUNIONNAME.DUMMYSTRUCTNAME.usButtonFlags` section.
+            #[must_use]
             pub fn from_ri(ri: u32) -> Option<KeyCode> {
                 match ri {
                    $($($($ri_identifier => Some(KeyCode::$enum),)*)?)*
@@ -116,9 +118,10 @@ macro_rules! generate_keycodes {
                 }
             }
 
-            /// Construct a KeyCode from a string representation of a virtual key-code message (`VK`).
+            /// Construct a [`KeyCode`] from a string representation of a virtual key-code message (`VK`).
             /// List of possible virtual-key code (VK_) constants can be found
             /// [here](https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes).
+            #[must_use]
             pub fn from_string(string: &str) -> Option<KeyCode> {
                 match string {
                     $(stringify!($identifier) => Some(KeyCode::$enum),)*
@@ -139,18 +142,50 @@ macro_rules! generate_keycodes {
 }
 
 macro_rules! as_item {
-    ($i:item) => { $i };
+    ($i:item) => {
+        $i
+    };
 }
 
 // Implements virtual-key codes listed in the Microsoft virtual-key code documentation:
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
 generate_keycodes!(
-    (LeftMouseButton, VK_LBUTTON, "Left Mouse Button", RI_MOUSE_BUTTON_1_DOWN, RI_MOUSE_BUTTON_1_UP),
-    (RightMouseButton, VK_RBUTTON, "Right Mouse Button", RI_MOUSE_BUTTON_2_DOWN, RI_MOUSE_BUTTON_2_UP),
+    (
+        LeftMouseButton,
+        VK_LBUTTON,
+        "Left Mouse Button",
+        RI_MOUSE_BUTTON_1_DOWN,
+        RI_MOUSE_BUTTON_1_UP
+    ),
+    (
+        RightMouseButton,
+        VK_RBUTTON,
+        "Right Mouse Button",
+        RI_MOUSE_BUTTON_2_DOWN,
+        RI_MOUSE_BUTTON_2_UP
+    ),
     (Cancel, VK_CANCEL, "Cancel"), // Control-break processing?
-    (MiddleMouseButton, VK_MBUTTON, "Middle Mouse Button", RI_MOUSE_BUTTON_3_DOWN, RI_MOUSE_BUTTON_3_UP),
-    (MouseButton4, VK_XBUTTON1, "Mouse Button 4", RI_MOUSE_BUTTON_4_DOWN, RI_MOUSE_BUTTON_4_UP),
-    (MouseButton5, VK_XBUTTON2, "Mouse Button 5", RI_MOUSE_BUTTON_5_DOWN, RI_MOUSE_BUTTON_5_UP),
+    (
+        MiddleMouseButton,
+        VK_MBUTTON,
+        "Middle Mouse Button",
+        RI_MOUSE_BUTTON_3_DOWN,
+        RI_MOUSE_BUTTON_3_UP
+    ),
+    (
+        MouseButton4,
+        VK_XBUTTON1,
+        "Mouse Button 4",
+        RI_MOUSE_BUTTON_4_DOWN,
+        RI_MOUSE_BUTTON_4_UP
+    ),
+    (
+        MouseButton5,
+        VK_XBUTTON2,
+        "Mouse Button 5",
+        RI_MOUSE_BUTTON_5_DOWN,
+        RI_MOUSE_BUTTON_5_UP
+    ),
     (Backspace, VK_BACK, "Backspace"),
     (Tab, VK_TAB, "Tab"),
     (Clear, VK_CLEAR, "Clear"),
@@ -289,7 +324,11 @@ generate_keycodes!(
     (VolumeDown, VK_VOLUME_DOWN, "Volume Down"),
     (VolumeUp, VK_VOLUME_UP, "Volume Up"),
     (MediaNextTrack, VK_MEDIA_NEXT_TRACK, "Media Next Track"),
-    (MediaPreviousTrack, VK_MEDIA_PREV_TRACK, "Media Previous Track"),
+    (
+        MediaPreviousTrack,
+        VK_MEDIA_PREV_TRACK,
+        "Media Previous Track"
+    ),
     (MediaStop, VK_MEDIA_STOP, "Stop Media"),
     (MediaPlayPause, VK_MEDIA_PLAY_PAUSE, "Play/Pause Media"),
     (Mail, VK_LAUNCH_MAIL, "Mail"),

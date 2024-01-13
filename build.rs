@@ -1,3 +1,4 @@
+#![allow(clippy::cargo_common_metadata)]
 extern crate winres;
 
 #[cfg(windows)]
@@ -5,7 +6,8 @@ fn main() {
     let mut res = winres::WindowsResource::new();
     res.set_icon("res/icon.ico");
 
-    res.set_manifest(r#"
+    res.set_manifest(
+        r#"
         <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
             <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
                 <security>
@@ -15,7 +17,8 @@ fn main() {
                 </security>
             </trustInfo>
         </assembly>
-    "#);
+    "#,
+    );
 
     // English = 0x0409
     res.set_language(0x0409);

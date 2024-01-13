@@ -1,52 +1,13 @@
-use windows::Win32::Foundation::{ POINT, HINSTANCE, HANDLE, GetLastError };
-use windows::core::{ PCWSTR, PCSTR };
+use windows::core::{PCSTR, PCWSTR};
+use windows::Win32::Foundation::{GetLastError, HANDLE, HINSTANCE, POINT};
 
-use windows::Win32::UI::WindowsAndMessaging::{ 
-    GetCursorPos, 
-    LoadImageA,
-    CopyImage,
-    SetSystemCursor,
-    SystemParametersInfoA,
-
-    SYSTEM_CURSOR_ID,
-    HCURSOR,
-    SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
-
-    IMAGE_CURSOR,
-    LR_LOADFROMFILE,
-    LR_SHARED,
-    IMAGE_FLAGS,
-    SPI_SETCURSORS,
-
-    OCR_APPSTARTING,
-    OCR_NORMAL,
-    OCR_CROSS,
-    OCR_HAND,
-    OCR_HELP,
-    OCR_IBEAM,
-    OCR_NO,
-    OCR_SIZEALL,
-    OCR_SIZENESW,
-    OCR_SIZENS,
-    OCR_SIZENWSE,
-    OCR_SIZEWE,
-    OCR_UP,
-    OCR_WAIT,
-
-    IDC_APPSTARTING,
-    IDC_ARROW,
-    IDC_CROSS,
-    IDC_HAND,
-    IDC_HELP,
-    IDC_IBEAM,
-    IDC_NO,
-    IDC_SIZEALL,
-    IDC_SIZENESW,
-    IDC_SIZENS,
-    IDC_SIZENWSE,
-    IDC_SIZEWE,
-    IDC_UPARROW,
-    IDC_WAIT,
+use windows::Win32::UI::WindowsAndMessaging::{
+    CopyImage, GetCursorPos, LoadImageA, SetSystemCursor, SystemParametersInfoA, HCURSOR,
+    IDC_APPSTARTING, IDC_ARROW, IDC_CROSS, IDC_HAND, IDC_HELP, IDC_IBEAM, IDC_NO, IDC_SIZEALL,
+    IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE, IDC_UPARROW, IDC_WAIT, IMAGE_CURSOR,
+    IMAGE_FLAGS, LR_LOADFROMFILE, LR_SHARED, OCR_APPSTARTING, OCR_CROSS, OCR_HAND, OCR_HELP,
+    OCR_IBEAM, OCR_NO, OCR_NORMAL, OCR_SIZEALL, OCR_SIZENESW, OCR_SIZENS, OCR_SIZENWSE, OCR_SIZEWE,
+    OCR_UP, OCR_WAIT, SPI_SETCURSORS, SYSTEM_CURSOR_ID, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS,
 };
 
 use crate::error::{AppError, AppResult};
@@ -66,97 +27,116 @@ pub enum CursorType {
     SizeNWSE,
     SizeWE,
     Up,
-    Wait
+    Wait,
 }
 
 /// Returns the position of the cursor.
-/// 
-/// ## Panics
-/// 
+///
+/// # Panics
+///
 /// This function panics if the internal call to `GetCursorPos()` returns `false`.
+#[must_use]
 pub fn position() -> (i32, i32) {
     let mut pos = POINT::default();
-    if unsafe { !GetCursorPos(&mut pos).as_bool() } {
-        panic!("failed to retrieve cursor position (system error {})", unsafe { GetLastError().0 });
-    }
+    assert!(
+        unsafe { GetCursorPos(&mut pos).as_bool() },
+        "failed to retrieve cursor position (system error {})",
+        unsafe { GetLastError().0 }
+    );
 
     (pos.x, pos.y)
 }
 
 pub struct Cursor {
-    handle: isize
+    handle: isize,
 }
 
 impl Cursor {
     /// Returns the currently active system cursor for the specified cursor type
-    pub fn current(cursor_type: CursorType) -> Self {
-        let hcursor = unsafe { 
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`LoadImageA`] fails.
+    #[must_use]
+    pub fn current(cursor_type: &CursorType) -> Self {
+        let hcursor = unsafe {
             LoadImageA(
                 None,
-                std::mem::transmute::<PCWSTR, PCSTR>(get_idc(&cursor_type)),
+                std::mem::transmute::<PCWSTR, PCSTR>(get_idc(cursor_type)),
                 IMAGE_CURSOR,
                 0,
                 0,
                 LR_SHARED,
             )
-        }.expect(format!("failed to load system cursor (system error {})", unsafe { GetLastError().0 }).as_str());
+        }
+        .unwrap_or_else(|_| {
+            panic!("failed to load system cursor (system error {})", unsafe {
+                GetLastError().0
+            })
+        });
 
         Self { handle: hcursor.0 }
     }
 
     /// Loads a cursor from the specified file. If the file does not exist
-    /// or is not a valid cursor file, this method returns an `Err(...)`.
+    /// or is not a valid cursor file, [`AppError`] is returned.
+    ///
+    /// # Errors
+    ///
+    /// This method returns an error if the underlaying call to [`windows::Windows::Win32::UI::WindowsAndMessaging::LoadImageA`] fails.
     pub fn load_from_file(filename: &str) -> AppResult<Self> {
         logf!("Loading cursor image from file (path: {})", filename);
 
-        let hcursor = unsafe {
-            LoadImageA(
-                HINSTANCE { 0: 0 }, 
-                filename, 
-                IMAGE_CURSOR, 
-                0, 
-                0, 
-                LR_LOADFROMFILE
-            )
-        };
+        let hcursor =
+            unsafe { LoadImageA(HINSTANCE(0), filename, IMAGE_CURSOR, 0, 0, LR_LOADFROMFILE) };
 
         match hcursor {
             Ok(v) => Ok(Self { handle: v.0 }),
-            Err(e) => Err(AppError::new("failed to load cursor from file", unsafe { Some(GetLastError().0 as usize) }, Some(Box::new(e))))
+            Err(e) => Err(AppError::new(
+                "failed to load cursor from file",
+                unsafe { Some(GetLastError().0 as usize) },
+                Some(Box::new(e)),
+            )),
         }
     }
 
     /// Creates a copy of the `self` cursor and returns it.
-    /// 
-    /// ## Panics
-    /// 
-    /// This method panics if the internal call to `CopyImage()` returns a [HANDLE] of value `0`.
+    ///
+    /// # Panics
+    ///
+    /// This method panics if the internal call to [`CopyImage()`] returns a [`HANDLE`] of value `0`.
+    #[must_use]
     pub fn copy(&self) -> Self {
-        let cpy = unsafe {
-            CopyImage(HANDLE(self.handle), IMAGE_CURSOR, 0, 0, IMAGE_FLAGS(0))
-        }.expect(format!("failed to copy image cursor (system error {})", unsafe { GetLastError().0 }).as_str());
+        let cpy = unsafe { CopyImage(HANDLE(self.handle), IMAGE_CURSOR, 0, 0, IMAGE_FLAGS(0)) }
+            .unwrap_or_else(|_| {
+                panic!("failed to copy image cursor (system error {})", unsafe {
+                    GetLastError().0
+                })
+            });
 
-        Self {
-            handle: cpy.0
-        }
+        Self { handle: cpy.0 }
     }
 }
 
 /// Sets the system cursor for the specified cursor type
-/// 
-/// ## Panics
-/// 
-/// This function panics if the internal call to `SetSystemCursor()` returns `false`.
-pub fn set(cursor_type: CursorType, cursor: &Cursor) {
-    logf!("Setting cursor (idc: {})", get_idc(&cursor_type).0 as isize);
+///
+/// # Panics
+///
+/// This function panics if the internal call to [`SetSystemCursor()`] returns `false`.
+pub fn set(cursor_type: &CursorType, cursor: &Cursor) {
+    logf!("Setting cursor (idc: {})", get_idc(cursor_type).0 as isize);
 
-    let success = unsafe {
-        SetSystemCursor(HCURSOR(cursor.handle), get_ocr(&cursor_type)).as_bool()
-    };
+    let success =
+        unsafe { SetSystemCursor(HCURSOR(cursor.handle), get_ocr(cursor_type)).as_bool() };
 
-    if !success {
-        panic!("{}", format!("failed to set system cursor: SetSystemCursor returned 0 (system error {:#08x})", unsafe { GetLastError().0 }));
-    }
+    assert!(
+        success,
+        "{}",
+        format!(
+            "failed to set system cursor: SetSystemCursor returned 0 (system error {:#08x})",
+            unsafe { GetLastError().0 }
+        )
+    );
 }
 
 /// Sets all the system cursor types to the specified cursor
@@ -164,40 +144,48 @@ pub fn set_all(cursor: &Cursor) {
     logf!("Setting all cursors");
 
     // This is terrible but it works
-    set(CursorType::AppStarting, &cursor.copy());
-    set(CursorType::Normal, &cursor.copy());
-    set(CursorType::Cross, &cursor.copy());
-    set(CursorType::Hand, &cursor.copy());
-    set(CursorType::Help, &cursor.copy());
-    set(CursorType::IBeam, &cursor.copy());
-    set(CursorType::No, &cursor.copy());
-    set(CursorType::SizeAll, &cursor.copy());
-    set(CursorType::SizeNESW, &cursor.copy());
-    set(CursorType::SizeNS, &cursor.copy());
-    set(CursorType::SizeNWSE, &cursor.copy());
-    set(CursorType::SizeWE, &cursor.copy());
-    set(CursorType::Up, &cursor.copy());
-    set(CursorType::Wait, &cursor.copy());
+    set(&CursorType::AppStarting, &cursor.copy());
+    set(&CursorType::Normal, &cursor.copy());
+    set(&CursorType::Cross, &cursor.copy());
+    set(&CursorType::Hand, &cursor.copy());
+    set(&CursorType::Help, &cursor.copy());
+    set(&CursorType::IBeam, &cursor.copy());
+    set(&CursorType::No, &cursor.copy());
+    set(&CursorType::SizeAll, &cursor.copy());
+    set(&CursorType::SizeNESW, &cursor.copy());
+    set(&CursorType::SizeNS, &cursor.copy());
+    set(&CursorType::SizeNWSE, &cursor.copy());
+    set(&CursorType::SizeWE, &cursor.copy());
+    set(&CursorType::Up, &cursor.copy());
+    set(&CursorType::Wait, &cursor.copy());
 }
 
 /// Resets system cursors to Windows the user-defined cursors
-/// 
-/// ## Panics
-/// 
-/// This function panics if the internal call to `SystemParametersInfoA()` returns `false`.
+///
+/// # Panics
+///
+/// This function panics if the internal call to [`SystemParametersInfoA()`] returns `false`.
 pub fn reset() {
     logf!("Resetting cursors");
 
     let success = unsafe {
-        SystemParametersInfoA(SPI_SETCURSORS, 0, std::ptr::null_mut(), SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0)).as_bool()
+        SystemParametersInfoA(
+            SPI_SETCURSORS,
+            0,
+            std::ptr::null_mut(),
+            SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
+        )
+        .as_bool()
     };
 
-    if !success {
-        panic!("failed to reset system cursor: SystemPerametersInfoA returned 0 (system error {:#08x})", unsafe { GetLastError().0 });
-    }
+    assert!(
+        success,
+        "failed to reset system cursor: SystemPerametersInfoA returned 0 (system error {:#08x})",
+        unsafe { GetLastError().0 }
+    );
 }
 
-/// Converts a [CursorType] to a Windows `OCR_XXX` value.
+/// Converts a [`CursorType`] to a Windows `OCR_` value.
 fn get_ocr(cursor_type: &CursorType) -> SYSTEM_CURSOR_ID {
     match cursor_type {
         CursorType::AppStarting => OCR_APPSTARTING,
@@ -213,12 +201,11 @@ fn get_ocr(cursor_type: &CursorType) -> SYSTEM_CURSOR_ID {
         CursorType::SizeNWSE => OCR_SIZENWSE,
         CursorType::SizeWE => OCR_SIZEWE,
         CursorType::Up => OCR_UP,
-        CursorType::Wait => OCR_WAIT
+        CursorType::Wait => OCR_WAIT,
     }
 }
 
-
-/// Converts a [CursorType] to a Windows `IDC_XXX` value.
+/// Converts a [`CursorType`] to a Windows `IDC_` value.
 fn get_idc(cursor_type: &CursorType) -> PCWSTR {
     match cursor_type {
         CursorType::AppStarting => IDC_APPSTARTING,
@@ -234,6 +221,6 @@ fn get_idc(cursor_type: &CursorType) -> PCWSTR {
         CursorType::SizeNWSE => IDC_SIZENWSE,
         CursorType::SizeWE => IDC_SIZEWE,
         CursorType::Up => IDC_UPARROW,
-        CursorType::Wait => IDC_WAIT
+        CursorType::Wait => IDC_WAIT,
     }
 }

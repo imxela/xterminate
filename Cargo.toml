@@ -1,5 +1,8 @@
 [package]
 name = "xterminate"
+description = "Easily terminate any windowed process by the press of a button."
+repository = "https://github.com/imxela/xterminate"
+keywords = [ "windows", "rust", "utility", "tool", "kill", "terminate", "task-kill", "alt-f4" ]
 version = "1.3.0"
 edition = "2021"
 authors = ["Xela <https://github.com/imxela/>"]
@@ -17,6 +20,7 @@ backtrace = "0.3"
 os_info = "3.7.0"
 
 [dependencies.windows]
+# Todo: bump to 0.48! (remove alloc feature when doing so!)
 version = "0.35.0"
 features = [
     "alloc",
