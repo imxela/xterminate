@@ -63,10 +63,10 @@ impl Process {
 
             let result = WaitForSingleObject(HANDLE(self.handle()), timeout_ms);
 
-            if result == WAIT_TIMEOUT.0 {
+            if result == WAIT_TIMEOUT {
                 logf!("Timed out!");
                 return false;
-            } else if result == WAIT_FAILED.0 {
+            } else if result == WAIT_FAILED {
                 logf!("WaitForSingleObject failed, try_exit() will return false");
                 // panic!("failed to wait for process exit: WaitForSingleObject returned WAIT_FAILED (os error {})", GetLastError().0);
                 return false;
@@ -79,7 +79,7 @@ impl Process {
     unsafe extern "system" fn enumerate_windows_cb(hwnd: HWND, lparam: LPARAM) -> BOOL {
         let mut wnd_process_id = 0;
 
-        GetWindowThreadProcessId(hwnd, &mut wnd_process_id);
+        GetWindowThreadProcessId(hwnd, Some(&mut wnd_process_id));
 
         if wnd_process_id == u32::try_from(lparam.0).expect("PID is unexpectedly large") {
             EnumChildWindows(hwnd, Some(Self::enumerate_child_windows_cb), LPARAM(0));

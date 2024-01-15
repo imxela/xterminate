@@ -40,13 +40,22 @@ use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{MessageBoxA, MB_ICONERROR, MB_OK};
 
 use chrono::Local;
+use windows::core::PCSTR;
 
+/// # Panics
+///
+/// Panics if `human_message` can not be turned into a valid [`CString`].
 pub fn display_error_dialog(human_message: &str) {
     unsafe {
         MessageBoxA(
             HWND(0),
-            human_message,
-            "xterminate.exe",
+            PCSTR(
+                std::ffi::CString::new(human_message)
+                    .unwrap()
+                    .as_bytes()
+                    .as_ptr(),
+            ),
+            PCSTR("xterminate.exe\0".as_ptr()),
             MB_OK | MB_ICONERROR,
         );
     }
@@ -89,8 +98,8 @@ fn on_panic(info: &std::panic::PanicInfo) {
     unsafe {
         MessageBoxA(
             HWND(0),
-            message,
-            "Panic! in xterminate",
+            PCSTR(std::ffi::CString::new(message).unwrap().as_bytes().as_ptr()),
+            PCSTR("Panic! in xterminate\0".as_ptr()),
             MB_OK | MB_ICONERROR,
         );
     }

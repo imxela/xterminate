@@ -4,9 +4,8 @@ use windows::Win32::Foundation::{GetLastError, ERROR_SUCCESS};
 use windows::Win32::System::Registry::{
     RegCloseKey, RegCreateKeyExA, RegDeleteValueA, RegOpenKeyExA, RegQueryValueExA,
     RegSetKeyValueA, HKEY, HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER,
-    HKEY_LOCAL_MACHINE, HKEY_USERS, KEY_READ, KEY_SET_VALUE, KEY_WRITE, REG_BINARY,
-    REG_CREATE_KEY_DISPOSITION, REG_DWORD, REG_DWORD_BIG_ENDIAN, REG_EXPAND_SZ, REG_LINK,
-    REG_OPTION_NON_VOLATILE, REG_QWORD, REG_SZ,
+    HKEY_LOCAL_MACHINE, HKEY_USERS, KEY_READ, KEY_SET_VALUE, KEY_WRITE, REG_BINARY, REG_DWORD,
+    REG_DWORD_BIG_ENDIAN, REG_EXPAND_SZ, REG_LINK, REG_OPTION_NON_VOLATILE, REG_QWORD, REG_SZ,
 };
 
 use crate::logf;
@@ -88,9 +87,9 @@ pub fn set_value(root_key: HKey, subkey: &str, name: &str, value_type: ValueType
             PCSTR(std::ptr::null()),
             REG_OPTION_NON_VOLATILE,
             KEY_WRITE,
-            std::ptr::null(),
+            None,
             &mut hkey,
-            std::ptr::null_mut::<REG_CREATE_KEY_DISPOSITION>(),
+            None,
         )
         .is_err()
         {
@@ -115,11 +114,13 @@ pub fn set_value(root_key: HKey, subkey: &str, name: &str, value_type: ValueType
             PCSTR(std::ptr::null()),
             PCSTR(std::ffi::CString::new(name).unwrap().as_bytes().as_ptr()),
             value_type as u32,
-            std::ffi::CString::new(value)
-                .unwrap()
-                .as_bytes()
-                .as_ptr()
-                .cast::<std::ffi::c_void>(),
+            Some(
+                std::ffi::CString::new(value)
+                    .unwrap()
+                    .as_bytes()
+                    .as_ptr()
+                    .cast::<std::ffi::c_void>(),
+            ),
             match value_type {
                 ValueType::Sz | ValueType::ExpandSZ => {
                     u32::try_from(value.len() + 1).unwrap()
@@ -241,16 +242,16 @@ pub fn exists(root_key: HKey, subkey: &str, name: Option<&str>) -> bool {
 
         let result = RegQueryValueExA(
             hkey,
-            Some(PCSTR(
+            PCSTR(
                 std::ffi::CString::new(name.unwrap())
                     .unwrap()
                     .as_bytes()
                     .as_ptr(),
-            )),
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
+            ),
+            None,
+            None,
+            None,
+            None,
         );
 
         assert!(

@@ -1,5 +1,5 @@
 use windows::core::{PCSTR, PCWSTR};
-use windows::Win32::Foundation::{GetLastError, HANDLE, HINSTANCE, POINT};
+use windows::Win32::Foundation::{GetLastError, HANDLE, HMODULE, POINT};
 
 use windows::Win32::UI::WindowsAndMessaging::{
     CopyImage, GetCursorPos, LoadImageA, SetSystemCursor, SystemParametersInfoA, HCURSOR,
@@ -84,11 +84,28 @@ impl Cursor {
     /// # Errors
     ///
     /// This method returns an error if the underlaying call to [`windows::Windows::Win32::UI::WindowsAndMessaging::LoadImageA`] fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `filename` can not be turned into a valid [`CString`].
     pub fn load_from_file(filename: &str) -> AppResult<Self> {
         logf!("Loading cursor image from file (path: {})", filename);
 
-        let hcursor =
-            unsafe { LoadImageA(HINSTANCE(0), filename, IMAGE_CURSOR, 0, 0, LR_LOADFROMFILE) };
+        let hcursor = unsafe {
+            LoadImageA(
+                HMODULE(0),
+                PCSTR(
+                    std::ffi::CString::new(filename)
+                        .unwrap()
+                        .as_bytes()
+                        .as_ptr(),
+                ),
+                IMAGE_CURSOR,
+                0,
+                0,
+                LR_LOADFROMFILE,
+            )
+        };
 
         match hcursor {
             Ok(v) => Ok(Self { handle: v.0 }),
@@ -172,7 +189,7 @@ pub fn reset() {
         SystemParametersInfoA(
             SPI_SETCURSORS,
             0,
-            std::ptr::null_mut(),
+            None,
             SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
         )
         .as_bool()

@@ -48,7 +48,7 @@ impl Window {
     pub fn process(&self) -> Process {
         let mut pid = u32::default();
 
-        unsafe { GetWindowThreadProcessId(HWND(self.handle), &mut pid) };
+        unsafe { GetWindowThreadProcessId(HWND(self.handle), Some(&mut pid)) };
 
         Process::open(pid)
     }

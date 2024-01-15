@@ -13,11 +13,13 @@ use windows::Win32::UI::Input::{
     RIDEV_INPUTSINK, RIDEV_REMOVE, RID_INPUT,
 };
 
+use windows::Win32::UI::Input::KeyboardAndMouse::MAPVK_VSC_TO_VK_EX;
+
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExA, DefWindowProcA, DestroyWindow, DispatchMessageA, GetWindowLongPtrW,
     PeekMessageA, RegisterClassExA, SetWindowLongPtrW, TranslateMessage, GWLP_USERDATA, HMENU,
-    HWND_MESSAGE, MAPVK_VSC_TO_VK_EX, MSG, PM_REMOVE, WINDOW_EX_STYLE, WINDOW_STYLE, WM_CREATE,
-    WM_DESTROY, WM_INPUT, WNDCLASSEXA,
+    HWND_MESSAGE, MSG, PM_REMOVE, WINDOW_EX_STYLE, WINDOW_STYLE, WM_CREATE, WM_DESTROY, WM_INPUT,
+    WNDCLASSEXA,
 };
 
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
@@ -95,7 +97,7 @@ impl Input {
             let mut wndclass = WNDCLASSEXA {
                 // Unwrap should not fail here
                 cbSize: u32::try_from(std::mem::size_of::<WNDCLASSEXA>()).unwrap(),
-                hInstance: GetModuleHandleA(PCSTR(std::ptr::null())),
+                hInstance: GetModuleHandleA(PCSTR(std::ptr::null())).unwrap(),
                 lpfnWndProc: Some(raw_input_callback),
                 ..Default::default()
             };
@@ -125,7 +127,7 @@ impl Input {
                 HWND_MESSAGE,
                 HMENU(0),
                 wndclass.hInstance,
-                std::ptr::null(),
+                None,
             );
 
             assert!(
@@ -291,7 +293,7 @@ fn process_raw_input_event(hwnd: HWND, msg: u32, lparam: LPARAM, wparam: WPARAM)
         if GetRawInputData(
             std::mem::transmute::<LPARAM, HRAWINPUT>(lparam),
             RID_INPUT,
-            std::ptr::null_mut(),
+            None,
             &mut dwsize,
             u32::try_from(std::mem::size_of::<RAWINPUTHEADER>())
                 .expect("size of RAWINPUTHEADER struct is greater than `u32` max size"),
@@ -309,7 +311,7 @@ fn process_raw_input_event(hwnd: HWND, msg: u32, lparam: LPARAM, wparam: WPARAM)
         if GetRawInputData(
             std::mem::transmute::<LPARAM, HRAWINPUT>(lparam),
             RID_INPUT,
-            data,
+            Some(data),
             &mut dwsize,
             u32::try_from(std::mem::size_of::<RAWINPUTHEADER>())
                 .expect("size of RAWINPUTHEADER struct is greater than `u32` max size"),

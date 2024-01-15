@@ -1,8 +1,6 @@
 use windows::core::PCSTR;
 
-use windows::Win32::Foundation::{
-    GetLastError, CHAR, HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM,
-};
+use windows::Win32::Foundation::{GetLastError, HMODULE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 
 use windows::Win32::UI::Shell::{
     Shell_NotifyIconA, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NOTIFYICONDATAA,
@@ -24,6 +22,7 @@ const WM_USER_TRAYICON: u32 = WM_USER + TRAYICON_ID;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ffi::CString;
 use std::rc::Rc;
 
 use crate::{input::Keybind, logf, registry};
@@ -111,7 +110,7 @@ impl Tray {
 
             let wndclass = WNDCLASSEXA {
                 cbSize: u32::try_from(std::mem::size_of::<WNDCLASSEXA>()).unwrap(),
-                hInstance: GetModuleHandleA(PCSTR(std::ptr::null())),
+                hInstance: GetModuleHandleA(PCSTR(std::ptr::null())).unwrap(),
                 lpfnWndProc: Some(trayicon_input_callback),
                 lpszClassName: PCSTR(class_name.as_ptr().cast::<u8>()),
                 ..Default::default()
@@ -135,7 +134,7 @@ impl Tray {
                 HWND(0),
                 HMENU(0),
                 wndclass.hInstance,
-                std::ptr::null(),
+                None,
             );
 
             assert!(
@@ -163,13 +162,15 @@ impl Tray {
             // NIF_TIP
             // str to CHAR array conversion
             let tooltip_str = "xterminate says hi! :)";
-            let mut tooltip_message: [CHAR; 128] = [CHAR(0u8); 128];
-            tooltip_str
-                .bytes()
-                .zip(tooltip_message.iter_mut())
-                .for_each(|(b, ptr)| *ptr = CHAR(b));
+            assert!(
+                tooltip_str.len() < 128,
+                "tooltip cannot be more than 127 characters!"
+            );
 
-            nid.szTip = tooltip_message;
+            let mut tooltip_array = [0u8; 128];
+            tooltip_array[..tooltip_str.len()].copy_from_slice(tooltip_str.as_bytes());
+
+            nid.szTip = tooltip_array;
 
             logf!("Creating system tray icon");
             Shell_NotifyIconA(NIM_ADD, &nid);
@@ -178,6 +179,8 @@ impl Tray {
         }
     }
 
+    // Todo: look into shortening this method
+    #[allow(clippy::too_many_lines)]
     fn show_menu(&mut self) {
         unsafe {
             let mut cursor_pos = POINT::default();
@@ -191,14 +194,14 @@ impl Tray {
                 1,
                 MF_BYPOSITION,
                 TrayEvent::OnMenuSelectResetCursor as usize,
-                "Reset cursor",
+                PCSTR("Reset cursor\0".as_ptr()),
             );
             InsertMenuA(
                 menu_handle,
                 2,
                 MF_BYPOSITION,
                 TrayEvent::OnMenuSelectOpenConfig as usize,
-                "Open config...",
+                PCSTR("Open config...\0".as_ptr()),
             );
 
             InsertMenuA(
@@ -206,7 +209,7 @@ impl Tray {
                 3,
                 MF_BYPOSITION | MF_SEPARATOR,
                 0,
-                PCSTR::default(),
+                PCSTR::null(),
             );
 
             let terminate_click_keybind = self.keybinds.get("terminate_click").unwrap().to_string();
@@ -221,14 +224,28 @@ impl Tray {
                 4,
                 MF_BYPOSITION,
                 TrayEvent::OnMenuSelectEnterTerminationMode as usize,
-                format!("Enter termination mode ({terminate_click_keybind})"),
+                PCSTR(
+                    CString::new(format!(
+                        "Enter termination mode ({terminate_click_keybind})"
+                    ))
+                    .unwrap()
+                    .as_bytes()
+                    .as_ptr(),
+                ),
             );
             InsertMenuA(
                 menu_handle,
                 5,
                 MF_BYPOSITION | MF_DISABLED,
                 0,
-                format!("Terminate active window ({terminate_immediate_keybind})"),
+                PCSTR(
+                    CString::new(format!(
+                        "Terminate active window ({terminate_immediate_keybind})"
+                    ))
+                    .unwrap()
+                    .as_bytes()
+                    .as_ptr(),
+                ),
             );
 
             InsertMenuA(
@@ -236,7 +253,7 @@ impl Tray {
                 6,
                 MF_BYPOSITION | MF_SEPARATOR,
                 0,
-                PCSTR::default(),
+                PCSTR::null(),
             );
 
             let enabled_str = if registry::exists(
@@ -254,7 +271,12 @@ impl Tray {
                 7,
                 MF_BYPOSITION,
                 TrayEvent::OnMenuSelectStartWithWindows as usize,
-                format!("Start with Windows ({enabled_str})"),
+                PCSTR(
+                    CString::new(format!("Start with Windows ({enabled_str})"))
+                        .unwrap()
+                        .as_bytes()
+                        .as_ptr(),
+                ),
             );
 
             InsertMenuA(
@@ -262,7 +284,7 @@ impl Tray {
                 8,
                 MF_BYPOSITION,
                 TrayEvent::OnMenuSelectExit as usize,
-                "Exit",
+                PCSTR("Exit\0".as_ptr()),
             );
 
             // Required or the popup menu won't close properly
@@ -275,7 +297,7 @@ impl Tray {
                 cursor_pos.y,
                 0,
                 self.hwnd,
-                std::ptr::null(),
+                None,
             );
         }
     }
@@ -293,17 +315,31 @@ impl Tray {
     #[must_use]
     /// # Panics
     ///
-    /// Panics if Windows fails to load the specified icon file, see [`LoadImageA`].
+    /// Panics if Windows fails to load the specified icon file (see [`LoadImageA`])
+    /// or if `filename` could not be turned into a valid [`CString`].
     pub fn load_icon_from_file(filename: &str) -> HICON {
-        let hicon =
-            unsafe { LoadImageA(HINSTANCE(0), filename, IMAGE_ICON, 0, 0, LR_LOADFROMFILE) }
-                .unwrap_or_else(|_| {
-                    panic!(
-                        "failed to load icon '{}': is the file missing or corrupt? (os error {})",
-                        filename,
-                        unsafe { GetLastError().0 }
-                    )
-                });
+        let hicon = unsafe {
+            LoadImageA(
+                HMODULE(0),
+                PCSTR(
+                    std::ffi::CString::new(filename)
+                        .unwrap()
+                        .as_bytes()
+                        .as_ptr(),
+                ),
+                IMAGE_ICON,
+                0,
+                0,
+                LR_LOADFROMFILE,
+            )
+        }
+        .unwrap_or_else(|_| {
+            panic!(
+                "failed to load icon '{}': is the file missing or corrupt? (os error {})",
+                filename,
+                unsafe { GetLastError().0 }
+            )
+        });
 
         HICON(hicon.0)
     }
