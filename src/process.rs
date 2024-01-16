@@ -7,7 +7,7 @@ use windows::Win32::Foundation::{
 };
 
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumChildWindows, EnumWindows, GetWindowThreadProcessId, SendNotifyMessageA, WM_CLOSE,
+    EnumWindows, GetWindowThreadProcessId, SendNotifyMessageA, WM_CLOSE,
 };
 
 use crate::logf;
@@ -42,8 +42,8 @@ impl Process {
     }
 
     /// Attempts to exit the process gracefully by sending a `WM_CLOSE`
-    /// message to all associated windows. Returns true if the process
-    /// exits or, false if it fails or if the timeout is exceeded.
+    /// message to all associated top-level windows. Returns true if the
+    /// process exits or, false if it fails or if the timeout is exceeded.
     ///
     /// # Panics
     ///
@@ -68,7 +68,6 @@ impl Process {
                 return false;
             } else if result == WAIT_FAILED {
                 logf!("WaitForSingleObject failed, try_exit() will return false");
-                // panic!("failed to wait for process exit: WaitForSingleObject returned WAIT_FAILED (os error {})", GetLastError().0);
                 return false;
             }
 
@@ -82,9 +81,11 @@ impl Process {
         GetWindowThreadProcessId(hwnd, Some(&mut wnd_process_id));
 
         if wnd_process_id == u32::try_from(lparam.0).expect("PID is unexpectedly large") {
-            EnumChildWindows(hwnd, Some(Self::enumerate_child_windows_cb), LPARAM(0));
-
-            logf!("Sending WM_CLOSE to window (hwnd: {})", hwnd.0);
+            logf!(
+                "Sending WM_CLOSE to window (hwnd: {} [{:08X}])",
+                hwnd.0,
+                hwnd.0
+            );
 
             assert!(
                 SendNotifyMessageA(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0)).as_bool(),
@@ -94,18 +95,6 @@ impl Process {
         }
 
         // No matching process was found
-        BOOL(i32::from(true))
-    }
-
-    unsafe extern "system" fn enumerate_child_windows_cb(hwnd: HWND, _lparam: LPARAM) -> BOOL {
-        logf!("Sending WM_CLOSE to child window (hwnd: {})", hwnd.0);
-
-        assert!(
-            SendNotifyMessageA(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0)).as_bool(),
-            "failed to send WM_CLOSE message to window: SendNotifyMessageA() returned false (os error {})",
-            GetLastError().0
-        );
-
         BOOL(i32::from(true))
     }
 
