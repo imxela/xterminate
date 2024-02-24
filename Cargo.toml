@@ -39,4 +39,4 @@ winres = "0.1"
 
 [package.metadata.winres]
 OriginalFilename = "xterminate.exe"
-LegalCopyright = "Copyright (c) 2023 Xela, see LICENSE file for more information."
+LegalCopyright = "Copyright (c) 2024 Xela, see LICENSE file for more information."
