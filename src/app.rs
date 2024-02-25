@@ -2,6 +2,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::UI::Shell::{FOLDERID_ProgramData, SHGetKnownFolderPath, KF_FLAG_DEFAULT};
+
 use crate::config::Config;
 use crate::cursor::Cursor;
 use crate::input::{Input, KeyCode, KeyState, KeyStatus, Keybind};
@@ -138,12 +141,17 @@ impl App {
     fn load_config() -> Config {
         let default_config = toml::from_slice::<Config>(DEFAULT_CONFIG_BYTES).unwrap();
 
-        let path = get_resource_path(CONFIG_FILENAME);
+        let path = get_config_path();
 
         let content = match std::fs::read(&path) {
             Ok(v) => v,
             Err(_e) => {
                 logf!("WARNING: No config file found, creating a default one");
+
+                if !get_appdata_path().exists() {
+                    std::fs::create_dir_all(get_appdata_path())
+                        .expect("failed to create xterminate program data directory");
+                }
 
                 // Create and read the default config
                 std::fs::write(&path, DEFAULT_CONFIG_BYTES)
@@ -191,7 +199,7 @@ impl App {
     fn save_config(config: &Config) {
         logf!("Writing configuration to disk");
 
-        let path = get_resource_path(CONFIG_FILENAME);
+        let path = get_config_path();
 
         let content = toml::to_string_pretty::<Config>(config).expect("failed to serialize config");
 
@@ -404,7 +412,7 @@ pub fn open_config_file() {
     };
 
     let mut c_filepath = String::from("notepad.exe ");
-    c_filepath.push_str(get_resource_path(CONFIG_FILENAME).as_str());
+    c_filepath.push_str(&get_config_path());
     c_filepath.push('\0');
 
     let c_notepad_path = "C:\\Windows\\notepad.exe\0";
@@ -448,6 +456,13 @@ pub fn get_icon_path() -> String {
 }
 
 #[must_use]
+pub fn get_config_path() -> String {
+    make_rel_appdata_path_abs(CONFIG_FILENAME)
+        .display()
+        .to_string()
+}
+
+#[must_use]
 /// # Panics
 ///
 /// Panics if the underlying call to [`std::env::current_exe()`] does.
@@ -456,6 +471,36 @@ pub fn get_executable_path() -> String {
         .expect("failed to get path to executable")
         .display()
         .to_string()
+}
+
+/// Returns xterminate's data directory (%APPDATA%/xterminate)
+///
+/// # Panics
+///
+/// Panics if the underlying call to [`SHGetKnownFolderPath()`] fails or if
+/// the [`PWSTR`] returned by said function cannot be turned into a [`String`].
+#[must_use]
+pub fn get_appdata_path() -> std::path::PathBuf {
+    unsafe {
+        let appdata_path =
+            SHGetKnownFolderPath(&FOLDERID_ProgramData, KF_FLAG_DEFAULT, HANDLE::default())
+                .expect("failed to get application data path");
+
+        let mut appdata_path = std::path::PathBuf::from(appdata_path.to_string().unwrap());
+        appdata_path.push("xterminate");
+
+        appdata_path
+    }
+}
+
+/// Returns the absolute path of a file or directory relative
+/// to xterminate's application data directory.
+#[must_use]
+pub fn make_rel_appdata_path_abs(filename: &str) -> std::path::PathBuf {
+    let mut appdata_path = get_appdata_path();
+    appdata_path.push(filename);
+
+    appdata_path
 }
 
 /// Returns the absolute path of a file relative to the 'res' folder
