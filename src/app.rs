@@ -18,6 +18,7 @@ const CURSOR_FILENAME: &str = "cursor.cur";
 const ICON_FILENAME: &str = "icon.ico";
 const DEFAULT_CONFIG_BYTES: &[u8] = include_bytes!("..\\res\\config.toml");
 const CONFIG_FILENAME: &str = "config.toml";
+const LOGFILES_PATH: &str = "logs\\";
 
 #[derive(PartialEq, Eq)]
 enum AppState {
@@ -458,6 +459,13 @@ pub fn get_icon_path() -> String {
 #[must_use]
 pub fn get_config_path() -> String {
     make_rel_appdata_path_abs(CONFIG_FILENAME)
+        .display()
+        .to_string()
+}
+
+#[must_use]
+pub fn get_logfiles_path() -> String {
+    make_rel_appdata_path_abs(LOGFILES_PATH)
         .display()
         .to_string()
 }

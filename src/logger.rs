@@ -31,7 +31,7 @@ pub fn initialize() {
     // 4. If date exceeds 7 days ago, delete the file
     // 5. Once all files have been iterated, init is complete
 
-    let logfile_directory = crate::app::make_rel_path_abs("logs");
+    let logfile_directory = crate::app::get_logfiles_path();
     std::fs::create_dir_all(&logfile_directory).expect("could not create logging directory");
 
     let entries =
@@ -82,7 +82,7 @@ pub fn log(message: &String, file: &'static str, line: u32) {
     // Todo: Check severity and use stderr when appropriate
     println!("{formatted_message}");
 
-    let logfile_directory = crate::app::make_rel_path_abs("logs");
+    let logfile_directory = crate::app::get_logfiles_path();
     let log_filepath = format!("{logfile_directory}{}", format_args!("\\{}.log", date));
 
     std::fs::create_dir_all(logfile_directory)
