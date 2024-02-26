@@ -505,6 +505,11 @@ pub fn get_appdata_path() -> std::path::PathBuf {
 /// to xterminate's application data directory.
 #[must_use]
 pub fn make_rel_appdata_path_abs(filename: &str) -> std::path::PathBuf {
+    debug_assert!(
+        !filename.starts_with('/') && !filename.starts_with('\\'),
+        "argument `filename` is relative and cannot start with a '/' or '\\' character"
+    );
+
     let mut appdata_path = get_appdata_path();
     appdata_path.push(filename);
 
@@ -526,6 +531,11 @@ pub fn get_resource_path(path: &str) -> String {
 /// Panics if the underlying call to [`std::env::current_exe()`] fails.
 #[must_use]
 pub fn make_rel_path_abs(filename: &str) -> String {
+    debug_assert!(
+        !filename.starts_with('/') && !filename.starts_with('\\'),
+        "argument `filename` is relative and cannot start with a '/' or '\\' character"
+    );
+
     let relative = std::path::PathBuf::from(filename);
     let mut absolute = std::env::current_exe().unwrap();
     absolute.pop(); // Remove the executable filename to get the root directory
