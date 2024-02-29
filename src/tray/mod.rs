@@ -1,18 +1,18 @@
+pub mod menu;
+
 use windows::core::PCSTR;
 
-use windows::Win32::Foundation::{GetLastError, HMODULE, HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows::Win32::Foundation::{GetLastError, HMODULE, HWND, LPARAM, LRESULT, WPARAM};
 
 use windows::Win32::UI::Shell::{
     Shell_NotifyIconA, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NOTIFYICONDATAA,
 };
 
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreatePopupMenu, CreateWindowExA, DefWindowProcA, DestroyWindow, DispatchMessageA,
-    GetCursorPos, GetWindowLongPtrW, InsertMenuA, LoadImageA, PeekMessageA, RegisterClassExA,
-    SetForegroundWindow, SetWindowLongPtrW, TrackPopupMenu, TranslateMessage, GWLP_USERDATA, HICON,
-    HMENU, IMAGE_ICON, LR_LOADFROMFILE, MF_BYPOSITION, MF_DISABLED, MF_SEPARATOR, MSG, PM_REMOVE,
-    TPM_BOTTOMALIGN, WINDOW_EX_STYLE, WINDOW_STYLE, WM_COMMAND, WM_LBUTTONDOWN, WM_RBUTTONDOWN,
-    WM_USER, WNDCLASSEXA,
+    CreateWindowExA, DefWindowProcA, DestroyWindow, DispatchMessageA, GetWindowLongPtrW,
+    LoadImageA, PeekMessageA, RegisterClassExA, SetWindowLongPtrW, TranslateMessage, GWLP_USERDATA,
+    HICON, HMENU, IMAGE_ICON, LR_LOADFROMFILE, MSG, PM_REMOVE, WINDOW_EX_STYLE, WINDOW_STYLE,
+    WM_COMMAND, WM_LBUTTONDOWN, WM_RBUTTONDOWN, WM_USER, WNDCLASSEXA,
 };
 
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
@@ -22,7 +22,6 @@ const WM_USER_TRAYICON: u32 = WM_USER + TRAYICON_ID;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::CString;
 use std::rc::Rc;
 
 use crate::{input::Keybind, logf, registry};
@@ -179,127 +178,45 @@ impl Tray {
         }
     }
 
-    // Todo: look into shortening this method
-    #[allow(clippy::too_many_lines)]
     fn show_menu(&mut self) {
-        unsafe {
-            let mut cursor_pos = POINT::default();
-            GetCursorPos(&mut cursor_pos);
+        let terminate_click_keybind = self.keybinds.get("terminate_click").unwrap().to_string();
+        let terminate_immediate_keybind = self
+            .keybinds
+            .get("terminate_immediate")
+            .unwrap()
+            .to_string();
 
-            logf!("Creating and populating system tray menu");
-            let menu_handle = CreatePopupMenu().unwrap();
+        let enabled_str = if registry::exists(
+            registry::HKey::HKeyCurrentUser,
+            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+            Some("xterminate"),
+        ) {
+            "ON"
+        } else {
+            "OFF"
+        };
 
-            InsertMenuA(
-                menu_handle,
-                1,
-                MF_BYPOSITION,
-                TrayEvent::OnMenuSelectResetCursor as usize,
-                PCSTR("Reset cursor\0".as_ptr()),
-            );
-            InsertMenuA(
-                menu_handle,
-                2,
-                MF_BYPOSITION,
-                TrayEvent::OnMenuSelectOpenConfig as usize,
-                PCSTR("Open config...\0".as_ptr()),
-            );
-
-            InsertMenuA(
-                menu_handle,
-                3,
-                MF_BYPOSITION | MF_SEPARATOR,
-                0,
-                PCSTR::null(),
-            );
-
-            let terminate_click_keybind = self.keybinds.get("terminate_click").unwrap().to_string();
-            let terminate_immediate_keybind = self
-                .keybinds
-                .get("terminate_immediate")
-                .unwrap()
-                .to_string();
-
-            InsertMenuA(
-                menu_handle,
-                4,
-                MF_BYPOSITION,
-                TrayEvent::OnMenuSelectEnterTerminationMode as usize,
-                PCSTR(
-                    CString::new(format!(
-                        "Enter termination mode ({terminate_click_keybind})"
-                    ))
-                    .unwrap()
-                    .as_bytes()
-                    .as_ptr(),
-                ),
-            );
-            InsertMenuA(
-                menu_handle,
-                5,
-                MF_BYPOSITION | MF_DISABLED,
-                0,
-                PCSTR(
-                    CString::new(format!(
-                        "Terminate active window ({terminate_immediate_keybind})"
-                    ))
-                    .unwrap()
-                    .as_bytes()
-                    .as_ptr(),
-                ),
-            );
-
-            InsertMenuA(
-                menu_handle,
-                6,
-                MF_BYPOSITION | MF_SEPARATOR,
-                0,
-                PCSTR::null(),
-            );
-
-            let enabled_str = if registry::exists(
-                registry::HKey::HKeyCurrentUser,
-                "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
-                Some("xterminate"),
-            ) {
-                "ON"
-            } else {
-                "OFF"
-            };
-
-            InsertMenuA(
-                menu_handle,
-                7,
-                MF_BYPOSITION,
-                TrayEvent::OnMenuSelectStartWithWindows as usize,
-                PCSTR(
-                    CString::new(format!("Start with Windows ({enabled_str})"))
-                        .unwrap()
-                        .as_bytes()
-                        .as_ptr(),
-                ),
-            );
-
-            InsertMenuA(
-                menu_handle,
-                8,
-                MF_BYPOSITION,
-                TrayEvent::OnMenuSelectExit as usize,
-                PCSTR("Exit\0".as_ptr()),
-            );
-
-            // Required or the popup menu won't close properly
-            SetForegroundWindow(self.hwnd);
-
-            TrackPopupMenu(
-                menu_handle,
-                TPM_BOTTOMALIGN,
-                cursor_pos.x,
-                cursor_pos.y,
-                0,
-                self.hwnd,
+        let menu = menu::TrayMenu::new(self.hwnd)
+            .add_button("Reset cursor\0", Some(TrayEvent::OnMenuSelectResetCursor))
+            .add_button("Open config...\0", Some(TrayEvent::OnMenuSelectOpenConfig))
+            .add_separator()
+            .add_button(
+                format!("Enter termination mode {terminate_click_keybind}\0").as_str(),
+                Some(TrayEvent::OnMenuSelectEnterTerminationMode),
+            )
+            .add_button(
+                format!("Terminate active window ({terminate_immediate_keybind})\0").as_str(),
                 None,
-            );
-        }
+            )
+            .add_separator()
+            .add_button(
+                format!("Start with Windows ({enabled_str})\0").as_str(),
+                Some(TrayEvent::OnMenuSelectStartWithWindows),
+            )
+            .add_button("Exit\0", Some(TrayEvent::OnMenuSelectExit))
+            .build();
+
+        menu.show();
     }
 
     pub fn poll(&self) {
