@@ -1,3 +1,5 @@
+use std::ops::BitAnd;
+
 use windows::Win32::System::Threading::{
     OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
 };
@@ -7,10 +9,45 @@ use windows::Win32::Foundation::{
 };
 
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetWindowThreadProcessId, SendNotifyMessageA, WM_CLOSE,
+    EnumWindows, GetAncestor, GetClassNameA, GetWindowLongPtrA, GetWindowThreadProcessId,
+    SendNotifyMessageA, GA_ROOT, GWL_STYLE, WM_CLOSE, WM_DESTROY, WM_QUIT, WS_DISABLED,
 };
 
 use crate::logf;
+
+/// Used to tell [`Process::try_exit()`] which exit-method to try on a process.
+pub enum ExitMethod {
+    /// Sends [`WM_CLOSE`]
+    Close,
+
+    /// Sends [`WM_DESTROY`]
+    Destroy,
+
+    /// Sends [`WM_QUIT`]
+    Quit,
+}
+
+impl std::fmt::Display for ExitMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExitMethod::Close => write!(f, "Close"),
+            ExitMethod::Destroy => write!(f, "Destroy"),
+            ExitMethod::Quit => write!(f, "Quit"),
+        }
+    }
+}
+
+impl ExitMethod {
+    /// Returns the Win32 window-message associated with this [`ExitMethod`].
+    #[must_use]
+    pub fn to_wm(&self) -> u32 {
+        match self {
+            ExitMethod::Close => WM_CLOSE,
+            ExitMethod::Destroy => WM_DESTROY,
+            ExitMethod::Quit => WM_QUIT,
+        }
+    }
+}
 
 pub struct Process {
     id: u32,
@@ -41,25 +78,69 @@ impl Process {
         }
     }
 
-    /// Attempts to exit the process gracefully by sending a `WM_CLOSE`
-    /// message to all associated top-level windows. Returns true if the
-    /// process exits or, false if it fails or if the timeout is exceeded.
+    /// Attempts to exit the process gracefully using the method specified.
+    /// If the specified timeout time has passed and the process has not
+    /// exited or if it the exit process encountered an error, this function
+    /// will return false. If the process exits successfully, it returns true.
     ///
     /// # Panics
     ///
-    /// Panics if this process has an unexpectedly large process ID (PID)
-    /// too large to fit inside a [`u32`].
-    pub fn try_exit(&mut self, timeout_ms: u32) -> bool {
+    /// Panics if no window could be found or if a window-message could
+    /// not be sent to the target process' top-level window(s), i.e. the
+    /// call to [`SendNotifyMessageA()`] fails.
+    pub fn try_exit(&mut self, method: &ExitMethod, timeout_ms: u32) -> bool {
         unsafe {
             logf!(
-                "Trying to close process' (pid: {}) windows gracefully",
-                self.id
+                "Trying to close process' (pid: {}) windows via method '{}'",
+                self.id,
+                method
             );
 
-            EnumWindows(
-                Some(Self::enumerate_windows_cb),
-                LPARAM(isize::try_from(self.id()).expect("PID is unexpectedly large")),
+            let result = Self::enumerate_window_handles()
+                .into_iter()
+                .filter(|hwnd| {
+                    let mut wnd_proc_id = 0;
+                    GetWindowThreadProcessId(HWND(*hwnd), Some(&mut wnd_proc_id));
+
+                    // Ensure window belongs to the target process
+                    // and that the window is a top level window
+                    // (i.e. its root parent is itself) and that
+                    // it isn't a disabled window.
+                    wnd_proc_id == self.id()
+                        && *hwnd == GetAncestor(HWND(*hwnd), GA_ROOT).0
+                        && GetWindowLongPtrA(HWND(*hwnd), GWL_STYLE)
+                            .bitand(isize::try_from(WS_DISABLED.0).unwrap())
+                            != isize::try_from(WS_DISABLED.0).unwrap()
+                })
+                .collect::<Vec<isize>>();
+
+            assert!(
+                !result.is_empty(),
+                "could not find any windows associated with the target process"
             );
+
+            for hwnd in result {
+                let mut hwnd_classname = [0u8; 256];
+
+                let hwnd_classname_len = GetClassNameA(HWND(hwnd), &mut hwnd_classname);
+                assert!(hwnd_classname_len != 0, "failed to get window class name");
+
+                logf!(
+                    "Sending '{}' to window (hwnd: {} [{:08X}]) (class name: {})",
+                    method,
+                    hwnd,
+                    hwnd,
+                    String::from_utf8_lossy(
+                        &hwnd_classname[0_usize..usize::try_from(hwnd_classname_len).unwrap()]
+                    )
+                );
+
+                assert!(
+                    SendNotifyMessageA(HWND(hwnd), method.to_wm(), WPARAM(0), LPARAM(0)).as_bool(),
+                    "failed to send message to window: SendNotifyMessageA() returned false (os error {})",
+                    GetLastError().0
+                );
+            }
 
             let result = WaitForSingleObject(HANDLE(self.handle()), timeout_ms);
 
@@ -75,26 +156,26 @@ impl Process {
         }
     }
 
-    unsafe extern "system" fn enumerate_windows_cb(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        let mut wnd_process_id = 0;
+    /// Enumerates all top-level windows and returns a list of their [`HWND`]'s as a [`Vec<isize>`].
+    #[must_use]
+    fn enumerate_window_handles() -> Vec<isize> {
+        let mut result: Vec<isize> = Vec::new();
 
-        GetWindowThreadProcessId(hwnd, Some(&mut wnd_process_id));
-
-        if wnd_process_id == u32::try_from(lparam.0).expect("PID is unexpectedly large") {
-            logf!(
-                "Sending WM_CLOSE to window (hwnd: {} [{:08X}])",
-                hwnd.0,
-                hwnd.0
-            );
-
-            assert!(
-                SendNotifyMessageA(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0)).as_bool(),
-                "failed to send WM_CLOSE message to window: SendNotifyMessageA() returned false (os error {})",
-                GetLastError().0
+        unsafe {
+            EnumWindows(
+                Some(Self::enum_windows_cb),
+                LPARAM(std::ptr::addr_of_mut!(result) as isize),
             );
         }
 
-        // No matching process was found
+        result
+    }
+
+    unsafe extern "system" fn enum_windows_cb(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let out_result: *mut Vec<isize> = lparam.0 as *mut Vec<isize>;
+
+        out_result.as_mut().unwrap().push(hwnd.0);
+
         BOOL(i32::from(true))
     }
 

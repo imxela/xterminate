@@ -8,6 +8,7 @@ use windows::Win32::UI::Shell::{FOLDERID_ProgramData, SHGetKnownFolderPath, KF_F
 use crate::config::Config;
 use crate::cursor::Cursor;
 use crate::input::{Input, KeyCode, KeyState, KeyStatus, Keybind};
+use crate::process::ExitMethod;
 use crate::registry;
 use crate::tray::{Tray, TrayEvent};
 use crate::window::Window;
@@ -252,19 +253,29 @@ impl App {
     /// to terminate. If `try_graceful` is true, an attempt will be
     /// made to gracefully exit the window before a termination is made.
     fn terminate(&self, window: &mut Window, try_graceful: bool) {
-        let timeout = self.config.borrow().graceful_timeout;
+        // Divide by 3 since we try 3 different exit methods and
+        // we want the timeout to be the total waiting time.
+        let timeout = self.config.borrow().graceful_timeout / 3u32;
+
+        let target_process = &mut window.process();
 
         if try_graceful {
-            logf!("Attempting graceful exit, timeout set to {}ms", timeout);
+            logf!(
+                "Attempting graceful exit methods, timeout set to {}ms",
+                timeout
+            );
 
-            if window.process().try_exit(timeout) {
+            if target_process.try_exit(&ExitMethod::Close, timeout)
+                || target_process.try_exit(&ExitMethod::Destroy, timeout)
+                || target_process.try_exit(&ExitMethod::Quit, timeout)
+            {
                 logf!("Graceful exit successful");
-                return;
+                return; // Early exit if any of the graceful attempts are successful
             }
         }
 
-        logf!("Forcefully terminating");
-        window.process().terminate();
+        logf!("Graceful exit attempts failed -- forcefully terminating");
+        target_process.terminate();
     }
 
     pub fn shutdown(&mut self) {
