@@ -62,7 +62,7 @@ impl Cursor {
         let hcursor = unsafe {
             LoadImageA(
                 None,
-                std::mem::transmute::<PCWSTR, PCSTR>(get_idc(cursor_type)),
+                std::mem::transmute::<PCWSTR, PCSTR>(idc(cursor_type)),
                 IMAGE_CURSOR,
                 0,
                 0,
@@ -141,10 +141,9 @@ impl Cursor {
 ///
 /// This function panics if the internal call to [`SetSystemCursor()`] returns `false`.
 pub fn set(cursor_type: &CursorType, cursor: &Cursor) {
-    logf!("Setting cursor (idc: {})", get_idc(cursor_type).0 as isize);
+    logf!("Setting cursor (idc: {})", idc(cursor_type).0 as isize);
 
-    let success =
-        unsafe { SetSystemCursor(HCURSOR(cursor.handle), get_ocr(cursor_type)).as_bool() };
+    let success = unsafe { SetSystemCursor(HCURSOR(cursor.handle), ocr(cursor_type)).as_bool() };
 
     assert!(
         success,
@@ -203,7 +202,7 @@ pub fn reset() {
 }
 
 /// Converts a [`CursorType`] to a Windows `OCR_` value.
-fn get_ocr(cursor_type: &CursorType) -> SYSTEM_CURSOR_ID {
+fn ocr(cursor_type: &CursorType) -> SYSTEM_CURSOR_ID {
     match cursor_type {
         CursorType::AppStarting => OCR_APPSTARTING,
         CursorType::Normal => OCR_NORMAL,
@@ -223,7 +222,7 @@ fn get_ocr(cursor_type: &CursorType) -> SYSTEM_CURSOR_ID {
 }
 
 /// Converts a [`CursorType`] to a Windows `IDC_` value.
-fn get_idc(cursor_type: &CursorType) -> PCWSTR {
+fn idc(cursor_type: &CursorType) -> PCWSTR {
     match cursor_type {
         CursorType::AppStarting => IDC_APPSTARTING,
         CursorType::Normal => IDC_ARROW,

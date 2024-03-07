@@ -61,7 +61,7 @@ impl App {
         Rc::new(RefCell::new(Self {
             config,
             appstate: AppState::Standby,
-            cursor_path: get_cursor_path(),
+            cursor_path: cursor_path(),
             keybinds,
         }))
     }
@@ -80,7 +80,7 @@ impl App {
         let input = Input::create(app.clone());
 
         logf!("Creating system tray");
-        let tray = Tray::create(&get_icon_path(), app.clone(), app.borrow().keybinds.clone());
+        let tray = Tray::create(&icon_path(), app.clone(), app.borrow().keybinds.clone());
 
         logf!("Starting event loop");
         while app.borrow().appstate != AppState::Shutdown {
@@ -143,15 +143,15 @@ impl App {
     fn load_config() -> Config {
         let default_config = toml::from_slice::<Config>(DEFAULT_CONFIG_BYTES).unwrap();
 
-        let path = get_config_path();
+        let path = config_path();
 
         let content = match std::fs::read(&path) {
             Ok(v) => v,
             Err(_e) => {
                 logf!("WARNING: No config file found, creating a default one");
 
-                if !get_appdata_path().exists() {
-                    std::fs::create_dir_all(get_appdata_path())
+                if !appdata_path().exists() {
+                    std::fs::create_dir_all(appdata_path())
                         .expect("failed to create xterminate program data directory");
                 }
 
@@ -201,7 +201,7 @@ impl App {
     fn save_config(config: &Config) {
         logf!("Writing configuration to disk");
 
-        let path = get_config_path();
+        let path = config_path();
 
         let content = toml::to_string_pretty::<Config>(config).expect("failed to serialize config");
 
@@ -222,7 +222,7 @@ impl App {
                 "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
                 "xterminate",
                 registry::ValueType::Sz,
-                get_executable_path().as_str(),
+                executable_path().as_str(),
             );
         } else if registry::exists(
             // Todo: duplicated code, fn autostart() already exists
@@ -424,7 +424,7 @@ pub fn open_config_file() {
     };
 
     let mut c_filepath = String::from("notepad.exe ");
-    c_filepath.push_str(&get_config_path());
+    c_filepath.push_str(&config_path());
     c_filepath.push('\0');
 
     let c_notepad_path = "C:\\Windows\\notepad.exe\0";
@@ -458,24 +458,24 @@ pub fn open_config_file() {
 
 /// Returns the absolute path of the cursor file.
 #[must_use]
-pub fn get_cursor_path() -> String {
-    get_resource_path(CURSOR_FILENAME)
+pub fn cursor_path() -> String {
+    resource_path(CURSOR_FILENAME)
 }
 
 #[must_use]
-pub fn get_icon_path() -> String {
-    get_resource_path(ICON_FILENAME)
+pub fn icon_path() -> String {
+    resource_path(ICON_FILENAME)
 }
 
 #[must_use]
-pub fn get_config_path() -> String {
+pub fn config_path() -> String {
     make_rel_appdata_path_abs(CONFIG_FILENAME)
         .display()
         .to_string()
 }
 
 #[must_use]
-pub fn get_logfiles_path() -> String {
+pub fn logfiles_path() -> String {
     make_rel_appdata_path_abs(LOGFILES_PATH)
         .display()
         .to_string()
@@ -485,7 +485,7 @@ pub fn get_logfiles_path() -> String {
 /// # Panics
 ///
 /// Panics if the underlying call to [`std::env::current_exe()`] does.
-pub fn get_executable_path() -> String {
+pub fn executable_path() -> String {
     std::env::current_exe()
         .expect("failed to get path to executable")
         .display()
@@ -499,7 +499,7 @@ pub fn get_executable_path() -> String {
 /// Panics if the underlying call to [`SHGetKnownFolderPath()`] fails or if
 /// the [`PWSTR`] returned by said function cannot be turned into a [`String`].
 #[must_use]
-pub fn get_appdata_path() -> std::path::PathBuf {
+pub fn appdata_path() -> std::path::PathBuf {
     unsafe {
         let appdata_path =
             SHGetKnownFolderPath(&FOLDERID_ProgramData, KF_FLAG_DEFAULT, HANDLE::default())
@@ -521,7 +521,7 @@ pub fn make_rel_appdata_path_abs(filename: &str) -> std::path::PathBuf {
         "argument `filename` is relative and cannot start with a '/' or '\\' character"
     );
 
-    let mut appdata_path = get_appdata_path();
+    let mut appdata_path = appdata_path();
     appdata_path.push(filename);
 
     appdata_path
@@ -530,7 +530,7 @@ pub fn make_rel_appdata_path_abs(filename: &str) -> std::path::PathBuf {
 /// Returns the absolute path of a file relative to the 'res' folder
 /// Equivalent to calling [`make_rel_path_abs("res/<filename>")`]
 #[must_use]
-pub fn get_resource_path(path: &str) -> String {
+pub fn resource_path(path: &str) -> String {
     make_rel_path_abs(format!("res\\{path}").as_str())
 }
 
