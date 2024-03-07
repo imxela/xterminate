@@ -1,2 +1,5 @@
 /target
 .vscode
+
+# VSCodeCounter extension data
+.VSCodeCounter/
