@@ -1,19 +1,15 @@
-use std::ops::BitAnd;
-
 use windows::Win32::System::Threading::{
     OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
 };
 
 use windows::Win32::Foundation::{
-    GetLastError, BOOL, ERROR_APP_HANG, HANDLE, HWND, LPARAM, WAIT_FAILED, WAIT_TIMEOUT, WPARAM,
+    GetLastError, ERROR_APP_HANG, HANDLE, HWND, LPARAM, WAIT_FAILED, WAIT_TIMEOUT, WPARAM,
 };
 
-use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetAncestor, GetClassNameA, GetWindowLongPtrA, GetWindowThreadProcessId,
-    SendNotifyMessageA, GA_ROOT, GWL_STYLE, WM_CLOSE, WM_DESTROY, WM_QUIT, WS_DISABLED,
-};
+use windows::Win32::UI::WindowsAndMessaging::{SendNotifyMessageA, WM_CLOSE, WM_DESTROY, WM_QUIT};
 
 use crate::logf;
+use crate::window::Window;
 
 /// Used to tell [`Process::try_exit()`] which exit-method to try on a process.
 pub enum ExitMethod {
@@ -62,7 +58,6 @@ impl Process {
     /// This function panics if the internal call to [`OpenProcess()`] returns a [`HANDLE`] of value `0`.
     #[must_use]
     pub fn open(pid: u32) -> Self {
-        logf!("Opening process '{}'", pid);
         let handle = unsafe { OpenProcess(PROCESS_TERMINATE | PROCESS_SYNCHRONIZE, false, pid) }
             .unwrap_or_else(|_| {
                 panic!(
@@ -96,47 +91,36 @@ impl Process {
                 method
             );
 
-            let result = Self::enumerate_window_handles()
+            let result = Window::windows()
                 .into_iter()
-                .filter(|hwnd| {
-                    let mut wnd_proc_id = 0;
-                    GetWindowThreadProcessId(HWND(*hwnd), Some(&mut wnd_proc_id));
-
+                .filter(|window| {
                     // Ensure window belongs to the target process
                     // and that the window is a top level window
                     // (i.e. its root parent is itself) and that
                     // it isn't a disabled window.
-                    wnd_proc_id == self.id()
-                        && *hwnd == GetAncestor(HWND(*hwnd), GA_ROOT).0
-                        && GetWindowLongPtrA(HWND(*hwnd), GWL_STYLE)
-                            .bitand(isize::try_from(WS_DISABLED.0).unwrap())
-                            != isize::try_from(WS_DISABLED.0).unwrap()
+                    window.process().id() == self.id() && window.is_root() && !window.is_disabled()
                 })
-                .collect::<Vec<isize>>();
+                .collect::<Vec<Window>>();
 
             assert!(
                 !result.is_empty(),
                 "could not find any windows associated with the target process"
             );
 
-            for hwnd in result {
-                let mut hwnd_classname = [0u8; 256];
-
-                let hwnd_classname_len = GetClassNameA(HWND(hwnd), &mut hwnd_classname);
-                assert!(hwnd_classname_len != 0, "failed to get window class name");
+            for window in result {
+                // Class name max size is 256 including nul.
+                let window_class_name = window.class_name();
 
                 logf!(
                     "Sending '{}' to window (hwnd: {} [{:08X}]) (class name: {})",
                     method,
-                    hwnd,
-                    hwnd,
-                    String::from_utf8_lossy(
-                        &hwnd_classname[0_usize..usize::try_from(hwnd_classname_len).unwrap()]
-                    )
+                    window.handle(),
+                    window.handle(),
+                    window_class_name
                 );
 
                 assert!(
-                    SendNotifyMessageA(HWND(hwnd), method.to_wm(), WPARAM(0), LPARAM(0)).as_bool(),
+                    SendNotifyMessageA(HWND(window.handle()), method.to_wm(), WPARAM(0), LPARAM(0)).as_bool(),
                     "failed to send message to window: SendNotifyMessageA() returned false (os error {})",
                     GetLastError().0
                 );
@@ -154,29 +138,6 @@ impl Process {
 
             true
         }
-    }
-
-    /// Enumerates all top-level windows and returns a list of their [`HWND`]'s as a [`Vec<isize>`].
-    #[must_use]
-    fn enumerate_window_handles() -> Vec<isize> {
-        let mut result: Vec<isize> = Vec::new();
-
-        unsafe {
-            EnumWindows(
-                Some(Self::enum_windows_cb),
-                LPARAM(std::ptr::addr_of_mut!(result) as isize),
-            );
-        }
-
-        result
-    }
-
-    unsafe extern "system" fn enum_windows_cb(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        let out_result: *mut Vec<isize> = lparam.0 as *mut Vec<isize>;
-
-        out_result.as_mut().unwrap().push(hwnd.0);
-
-        BOOL(i32::from(true))
     }
 
     /// Terminates the `self` process.
