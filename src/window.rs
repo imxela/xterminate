@@ -128,3 +128,18 @@ impl Window {
         BOOL(i32::from(true))
     }
 }
+
+impl std::fmt::Debug for Window {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Process")
+            .field("class_name", &self.class_name())
+            .field("handle", &format_args!("0x{0:08X}", self.handle))
+            .finish()
+    }
+}
+
+impl std::fmt::Display for Window {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} (handle: {})", self.class_name(), self.handle)
+    }
+}

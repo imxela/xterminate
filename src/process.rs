@@ -1,9 +1,11 @@
+use windows::Win32::System::ProcessStatus::GetModuleFileNameExA;
 use windows::Win32::System::Threading::{
-    OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
+    OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_QUERY_LIMITED_INFORMATION,
+    PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
 };
 
 use windows::Win32::Foundation::{
-    GetLastError, ERROR_APP_HANG, HANDLE, HWND, LPARAM, WAIT_FAILED, WAIT_TIMEOUT, WPARAM,
+    GetLastError, ERROR_APP_HANG, HANDLE, HMODULE, HWND, LPARAM, WAIT_FAILED, WAIT_TIMEOUT, WPARAM,
 };
 
 use windows::Win32::UI::WindowsAndMessaging::{SendNotifyMessageA, WM_CLOSE, WM_DESTROY, WM_QUIT};
@@ -58,14 +60,20 @@ impl Process {
     /// This function panics if the internal call to [`OpenProcess()`] returns a [`HANDLE`] of value `0`.
     #[must_use]
     pub fn open(pid: u32) -> Self {
-        let handle = unsafe { OpenProcess(PROCESS_TERMINATE | PROCESS_SYNCHRONIZE, false, pid) }
-            .unwrap_or_else(|_| {
-                panic!(
-                    "failed to open target process ({}) (system error {})",
-                    pid,
-                    unsafe { GetLastError().0 }
-                )
-            });
+        let handle = unsafe {
+            OpenProcess(
+                PROCESS_TERMINATE | PROCESS_SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION,
+                false,
+                pid,
+            )
+        }
+        .unwrap_or_else(|_| {
+            panic!(
+                "failed to open target process ({}) (system error {})",
+                pid,
+                unsafe { GetLastError().0 }
+            )
+        });
 
         Self {
             id: pid,
@@ -86,8 +94,8 @@ impl Process {
     pub fn try_exit(&mut self, method: &ExitMethod, timeout_ms: u32) -> bool {
         unsafe {
             logf!(
-                "Trying to close process' (pid: {}) windows via method '{}'",
-                self.id,
+                "Trying to close process' {} windows via method '{}'",
+                self,
                 method
             );
 
@@ -104,24 +112,16 @@ impl Process {
 
             assert!(
                 !result.is_empty(),
-                "could not find any windows associated with the target process"
+                "could not find any windows associated with target process"
             );
 
             for window in result {
-                // Class name max size is 256 including nul.
-                let window_class_name = window.class_name();
-
-                logf!(
-                    "Sending '{}' to window (hwnd: {} [{:08X}]) (class name: {})",
-                    method,
-                    window.handle(),
-                    window.handle(),
-                    window_class_name
-                );
+                logf!("Sending '{}' to window {}", method, window);
 
                 assert!(
                     SendNotifyMessageA(HWND(window.handle()), method.to_wm(), WPARAM(0), LPARAM(0)).as_bool(),
-                    "failed to send message to window: SendNotifyMessageA() returned false (os error {})",
+                    "failed to send message to window {}: SendNotifyMessageA() returned false (os error {})",
+                    window,
                     GetLastError().0
                 );
             }
@@ -146,16 +146,58 @@ impl Process {
     ///
     /// This method panics if the internal call to [`TerminateProcess()`] returns ´false´.
     pub fn terminate(&self) {
-        logf!("Terminating process (pid: {})", self.id);
+        logf!("Terminating process {}", self);
 
         let success = unsafe { TerminateProcess(HANDLE(self.handle), ERROR_APP_HANG.0).as_bool() };
 
         assert!(
             success,
-            "failed to terminate target process ({}) (system error {})",
+            "failed to terminate process (system error {})",
+            unsafe { GetLastError().0 }
+        );
+    }
+
+    /// Returns the abnsolute path to the process executable.
+    ///
+    /// # Panics
+    /// This method panics if the call to retrieve the process name results
+    /// in an empty buffer of utf-8 characters.
+    #[must_use]
+    pub fn path(&self) -> String {
+        let mut buffer = [0u8; 256];
+
+        let process_name_length =
+            unsafe { GetModuleFileNameExA(HANDLE(self.handle()), HMODULE::default(), &mut buffer) };
+
+        assert!(
+            process_name_length > 0,
+            "failed to get path for process ({}) (system error {})",
             self.id(),
             unsafe { GetLastError().0 }
         );
+
+        std::str::from_utf8(&buffer[..process_name_length as usize])
+            .unwrap()
+            .to_owned()
+    }
+
+    /// Returns the name of the process executable (including its extension).
+    ///
+    /// # Panics
+    ///
+    /// This method panics if the call to retrieve the process name results
+    /// in an empty buffer of utf-8 characters.
+    #[must_use]
+    pub fn name(&self) -> String {
+        // Strips the absolute path and keeps only the executable filename
+        let path = self.path();
+
+        let last = path
+            .rfind('\\')
+            .or_else(|| path.rfind('/').or(Some(path.len())))
+            .unwrap();
+
+        path[last + 1..path.len()].to_owned()
     }
 
     #[must_use]
@@ -166,5 +208,21 @@ impl Process {
     #[must_use]
     pub fn handle(&self) -> isize {
         self.handle
+    }
+}
+
+impl std::fmt::Debug for Process {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Process")
+            .field("name", &self.name())
+            .field("id", &self.id)
+            .field("handle", &format_args!("0x{0:08X}", self.handle))
+            .finish()
+    }
+}
+
+impl std::fmt::Display for Process {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} (pid: {})", self.name(), self.id())
     }
 }

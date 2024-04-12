@@ -259,22 +259,25 @@ impl App {
 
         let target_process = &mut window.process();
 
+        logf!("Will close process {}", target_process);
+
         if try_graceful {
             logf!(
-                "Attempting graceful exit methods, timeout set to {}ms",
+                "Attempting graceful exit methods with timeout set to {}ms",
                 timeout
             );
 
-            if target_process.try_exit(&ExitMethod::Close, timeout)
+            if !(target_process.try_exit(&ExitMethod::Close, timeout)
                 || target_process.try_exit(&ExitMethod::Destroy, timeout)
-                || target_process.try_exit(&ExitMethod::Quit, timeout)
+                || target_process.try_exit(&ExitMethod::Quit, timeout))
             {
-                logf!("Graceful exit successful");
-                return; // Early exit if any of the graceful attempts are successful
+                logf!("Graceful exit failed");
             }
+        } else {
+            logf!("Graceful exit disabled ");
         }
 
-        logf!("Graceful exit attempts failed -- forcefully terminating");
+        logf!("Terminating forcefully");
         target_process.terminate();
     }
 
