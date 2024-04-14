@@ -1,6 +1,6 @@
 use windows::Win32::System::ProcessStatus::GetModuleFileNameExA;
 use windows::Win32::System::Threading::{
-    OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_QUERY_LIMITED_INFORMATION,
+    OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_QUERY_INFORMATION,
     PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
 };
 
@@ -62,7 +62,10 @@ impl Process {
     pub fn open(pid: u32) -> Self {
         let handle = unsafe {
             OpenProcess(
-                PROCESS_TERMINATE | PROCESS_SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION,
+                PROCESS_TERMINATE
+                    | PROCESS_SYNCHRONIZE
+                    | PROCESS_QUERY_INFORMATION
+                    | PROCESS_TERMINATE,
                 false,
                 pid,
             )
@@ -74,6 +77,10 @@ impl Process {
                 unsafe { GetLastError().0 }
             )
         });
+
+        // Retreive privileges required to access
+        //  - PROCESS_QUERY_INFORMATION for GetModuleFileNameExA
+        //  - PROCESS_TERMINATE for TerminateProcess
 
         Self {
             id: pid,
