@@ -11,6 +11,7 @@ use crate::input::{Input, KeyCode, KeyState, KeyStatus, Keybind};
 use crate::process::ExitMethod;
 use crate::registry;
 use crate::tray::{Tray, TrayEvent};
+use crate::ui::taskdialog::TaskDialog;
 use crate::window::Window;
 use crate::{cursor, logf};
 
@@ -66,6 +67,7 @@ impl App {
         }))
     }
 
+    #[allow(clippy::never_loop)]
     /// Runs xterminate
     pub fn run(app: &Rc<RefCell<Self>>) {
         logf!("Running application");
@@ -412,6 +414,22 @@ impl crate::tray::TrayEventHandler for App {
 
             TrayEvent::OnMenuSelectEnterTerminationMode => {
                 self.termination_mode_activate();
+            }
+
+            TrayEvent::OnMenuSelectAbout => {
+                TaskDialog::new()
+                    .set_title("About")
+                    .set_heading(format!("xterminate v{}", env!("CARGO_PKG_VERSION")))
+                    .set_content(
+                        "Easily terminate any windowed process by the press of a button.\
+                        \n\nThis software was created by <a href=\"https://github.com/imxela\">@imxela</a> and is licensed under the open-source \
+                        <a href=\"https://github.com/imxela/xterminate/blob/main/LICENSE\">MIT license</a>. \
+                        The source code is publicly available in xterminate's <a href=\"https://github.com/imxela/xterminate\">GitHub repository</a>.\n\n\
+                        Contact information can be found on my <a href=\"https://xela.me\">website</a>.\
+                        \n\nThank you for using my software! <3"
+                    )
+                    .set_hyperlinks_enabled(true)
+                    .display_blocking();
             }
         }
     }

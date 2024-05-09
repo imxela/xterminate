@@ -98,7 +98,7 @@ fn on_panic(info: &std::panic::PanicInfo) {
 
     TaskDialog::new()
         .set_title("Panic! in xterminate")
-        .set_heading("An error occured in xterminate")
+        .set_heading("An unexpected error occurred in xterminate")
         .set_content(message)
         .set_icon(taskdialog::TaskDialogIcon::ErrorIcon)
         .display_blocking();

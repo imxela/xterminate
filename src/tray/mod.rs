@@ -33,6 +33,7 @@ pub enum TrayEvent {
     OnMenuSelectResetCursor = 2,
     OnMenuSelectOpenConfig = 3,
     OnMenuSelectEnterTerminationMode = 4,
+    OnMenuSelectAbout = 5,
 }
 
 pub trait TrayEventHandler {
@@ -47,6 +48,7 @@ impl From<u16> for TrayEvent {
             2 => Self::OnMenuSelectResetCursor,
             3 => Self::OnMenuSelectOpenConfig,
             4 => Self::OnMenuSelectEnterTerminationMode,
+            5 => Self::OnMenuSelectAbout,
             _ => panic!("Invalid enum value '{v}'"),
         }
     }
@@ -213,6 +215,9 @@ impl Tray {
                 format!("Start with Windows ({enabled_str})\0").as_str(),
                 Some(TrayEvent::OnMenuSelectStartWithWindows),
             )
+            .add_separator()
+            .add_button("About...\0", Some(TrayEvent::OnMenuSelectAbout))
+            .add_separator()
             .add_button("Exit\0", Some(TrayEvent::OnMenuSelectExit))
             .build();
 
