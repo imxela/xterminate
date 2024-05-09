@@ -11,6 +11,7 @@ pub mod logger;
 pub mod process;
 pub mod registry;
 pub mod tray;
+pub mod ui;
 pub mod window;
 
 use app::App;

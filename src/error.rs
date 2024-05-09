@@ -1,5 +1,6 @@
 pub use std::error::Error;
 
+use crate::ui::taskdialog::{self, TaskDialog};
 use crate::{app, logf};
 
 /// Represents a human-readable error including an optional error code (e.g. system error code)
@@ -95,12 +96,10 @@ fn on_panic(info: &std::panic::PanicInfo) {
 
     logf!("PANIC: {}", message);
 
-    unsafe {
-        MessageBoxA(
-            HWND(0),
-            PCSTR(std::ffi::CString::new(message).unwrap().as_bytes().as_ptr()),
-            PCSTR("Panic! in xterminate\0".as_ptr()),
-            MB_OK | MB_ICONERROR,
-        );
-    }
+    TaskDialog::new()
+        .set_title("Panic! in xterminate")
+        .set_heading("An error occured in xterminate")
+        .set_content(message)
+        .set_icon(taskdialog::TaskDialogIcon::ErrorIcon)
+        .display_blocking();
 }
