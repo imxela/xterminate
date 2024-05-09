@@ -6,6 +6,10 @@
 
 <br>
 
+<p align="center"><img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExencxYjkwZjZmaXY3NWxnb3pwbHIyN2d0NmJsM3FqMHEzdnVvYjdxcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ptbmSkcn2GeRzlLjId/giphy.gif" border="0"></p>
+
+<br>
+
 <p align="center"><a href="https://github.com/imxela/xterminate/releases/latest/download/xterminate-setup.exe">Download</a></p>
 
 <p align="center">
