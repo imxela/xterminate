@@ -67,7 +67,7 @@ impl App {
         }))
     }
 
-    #[allow(clippy::never_loop)]
+    #[allow(clippy::never_loop, clippy::missing_panics_doc)]
     /// Runs xterminate
     pub fn run(app: &Rc<RefCell<Self>>) {
         logf!("Running application");
@@ -91,7 +91,7 @@ impl App {
             // to block the thread until a message is receieved
             // instead of wasting CPU time on polling constantly.
             use windows::Win32::UI::WindowsAndMessaging::WaitMessage;
-            unsafe { WaitMessage() };
+            unsafe { WaitMessage().unwrap() };
 
             input.borrow().poll();
             tray.borrow().poll();
@@ -483,7 +483,6 @@ pub fn run_executable(executable_path: &str, args: &[&str]) -> Result<(), window
             &si,
             &mut pi,
         )
-        .ok()
     }
 }
 
@@ -491,10 +490,9 @@ pub fn run_executable(executable_path: &str, args: &[&str]) -> Result<(), window
 #[allow(clippy::missing_panics_doc)]
 pub fn open_config_file() {
     if let Err(result) = run_executable("C:\\Windows\\notepad.exe", &[config_path().as_str()]) {
-        logf!(
-            "ERROR: failed to open config file: {result} (OS Error: {})",
-            unsafe { GetLastError().0 }
-        );
+        logf!("ERROR: failed to open config file: {result} [{}]", unsafe {
+            GetLastError().unwrap_err()
+        });
     }
 }
 
@@ -503,8 +501,8 @@ pub fn open_config_file() {
 pub fn open_logging_directory() {
     if let Err(result) = run_executable("C:\\Windows\\explorer.exe", &[logfiles_path().as_str()]) {
         logf!(
-            "ERROR: failed to open logging directory: {result} (OS Error: {})",
-            unsafe { GetLastError().0 }
+            "ERROR: failed to open logging directory: {result} [{}]",
+            unsafe { GetLastError().unwrap_err() }
         );
     }
 }

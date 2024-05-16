@@ -20,7 +20,7 @@ backtrace = "0.3"
 os_info = "3.7.0"
 
 [dependencies.windows]
-version = "0.48.0"
+version = "0.52.0"
 features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",

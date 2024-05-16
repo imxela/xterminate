@@ -94,11 +94,13 @@ impl TrayMenuBuilder {
                 event.map_or(0, |ev| ev as usize),
                 PCSTR(c_label.as_ptr().cast::<u8>()),
             )
-        };
+            .unwrap();
+        }
 
         self
     }
 
+    #[allow(clippy::missing_panics_doc)]
     pub fn add_separator(&mut self) -> &mut Self {
         self.item_count += 1;
 
@@ -110,11 +112,13 @@ impl TrayMenuBuilder {
                 0,
                 PCSTR::null(),
             )
-        };
+            .unwrap();
+        }
 
         self
     }
 
+    #[allow(clippy::missing_panics_doc)]
     pub fn build(&mut self) -> TrayMenu {
         TrayMenu {
             handle: self.handle,
@@ -123,7 +127,7 @@ impl TrayMenuBuilder {
             // Default position to position of mouse cursor
             position: self.position.unwrap_or({
                 let mut cursor_position = POINT::default();
-                unsafe { GetCursorPos(&mut cursor_position) };
+                unsafe { GetCursorPos(&mut cursor_position).unwrap() };
                 (cursor_position.x, cursor_position.y)
             }),
         }

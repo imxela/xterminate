@@ -1,8 +1,7 @@
 #![allow(dead_code)]
 
 use windows::{
-    core::{HRESULT, PCSTR, PCWSTR},
-    w,
+    core::{w, HRESULT, PCSTR, PCWSTR},
     Win32::{
         Foundation::{BOOL, HWND, LPARAM, WPARAM},
         System::LibraryLoader::GetModuleHandleA,
@@ -160,7 +159,7 @@ impl TaskDialogBuilder {
 
             let config = TASKDIALOGCONFIG {
                 cbSize: u32::try_from(std::mem::size_of::<TASKDIALOGCONFIG>()).unwrap(),
-                hInstance: unsafe { GetModuleHandleA(PCSTR(std::ptr::null())).unwrap() },
+                hInstance: unsafe { GetModuleHandleA(PCSTR(std::ptr::null())).unwrap().into() },
                 pszWindowTitle: PCWSTR(dialog_title.as_ptr()),
                 pszMainInstruction: PCWSTR(dialog_heading.as_ptr()),
                 pszContent: PCWSTR(dialog_content.as_ptr()),

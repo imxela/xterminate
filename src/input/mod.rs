@@ -97,7 +97,7 @@ impl Input {
             let mut wndclass = WNDCLASSEXA {
                 // Unwrap should not fail here
                 cbSize: u32::try_from(std::mem::size_of::<WNDCLASSEXA>()).unwrap(),
-                hInstance: GetModuleHandleA(PCSTR(std::ptr::null())).unwrap(),
+                hInstance: GetModuleHandleA(PCSTR(std::ptr::null())).unwrap().into(),
                 lpfnWndProc: Some(raw_input_callback),
                 ..Default::default()
             };
@@ -110,8 +110,8 @@ impl Input {
 
             assert!(
                 RegisterClassExA(&wndclass) > 0,
-                "input window class registration failed: RegisterClassA() returned NULL (os error code {})", 
-                GetLastError().0
+                "input window class registration failed: RegisterClassA() returned NULL [{}]",
+                GetLastError().unwrap_err()
             );
 
             logf!("Creating input processing message-only window");
@@ -132,8 +132,8 @@ impl Input {
 
             assert!(
                 hwnd.0 > 0,
-                "window creation failed: CreateWindowExA() returned NULL (os error code {})",
-                GetLastError().0
+                "window creation failed: CreateWindowExA() returned NULL [{}]",
+                GetLastError().unwrap_err()
             );
 
             let instance = Rc::new(RefCell::new(Self {
@@ -167,12 +167,13 @@ impl Input {
         self.keys.clone()
     }
 
+    #[allow(clippy::missing_panics_doc)]
     pub fn unregister(&self) {
         unsafe {
             // DestroyWindow triggers the WM_DESTROY message in the
             // WndProc handler above, which in turn unregiosters the
             // raw input devices.
-            DestroyWindow(self.hwnd);
+            DestroyWindow(self.hwnd).unwrap();
         }
     }
 }
@@ -255,7 +256,12 @@ fn register_raw_input_devices(hwnd: HWND) {
             u32::try_from(std::mem::size_of::<RAWINPUTDEVICE>())
                 .expect("size of struct `RAWINPUTDEVICE` is greater than `u32` max size"),
         )
-        .expect(format!("RegisterRawInputDevices() failed: {}", GetLastError().0).as_str());
+        .unwrap_or_else(|_| {
+            panic!(
+                "RegisterRawInputDevices() failed [{}]",
+                GetLastError().unwrap_err()
+            )
+        });
     }
 }
 
@@ -281,7 +287,12 @@ fn unregister_raw_input_devices() {
             u32::try_from(std::mem::size_of::<RAWINPUTDEVICE>())
                 .expect("size of struct `RAWINPUTDEVICE` is greater than `u32` max size"),
         )
-        .expect(format!("RegisterRawInputDevices() failed: {}", GetLastError().0).as_str());
+        .unwrap_or_else(|_| {
+            panic!(
+                "RegisterRawInputDevices() failed [{}]",
+                GetLastError().unwrap_err()
+            )
+        });
     }
 }
 
@@ -300,8 +311,8 @@ fn process_raw_input_event(hwnd: HWND, msg: u32, lparam: LPARAM, wparam: WPARAM)
         ) == std::mem::transmute::<i32, u32>(-1)
         {
             panic!(
-                "first call to GetRawInputData() failed: {}",
-                GetLastError().0
+                "first call to GetRawInputData() failed [{}]",
+                GetLastError().unwrap_err()
             )
         }
 
@@ -318,8 +329,8 @@ fn process_raw_input_event(hwnd: HWND, msg: u32, lparam: LPARAM, wparam: WPARAM)
         ) != dwsize
         {
             panic!(
-                "second call to GetRawInputData() failed: {}",
-                GetLastError().0
+                "second call to GetRawInputData() failed [{}]",
+                GetLastError().unwrap_err()
             )
         }
 

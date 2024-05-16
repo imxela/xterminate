@@ -39,9 +39,9 @@ pub enum CursorType {
 pub fn position() -> (i32, i32) {
     let mut pos = POINT::default();
     assert!(
-        unsafe { GetCursorPos(&mut pos).as_bool() },
-        "failed to retrieve cursor position (system error {})",
-        unsafe { GetLastError().0 }
+        unsafe { GetCursorPos(&mut pos).is_ok() },
+        "failed to retrieve cursor position [{}]",
+        unsafe { GetLastError().unwrap_err() }
     );
 
     (pos.x, pos.y)
@@ -70,8 +70,8 @@ impl Cursor {
             )
         }
         .unwrap_or_else(|_| {
-            panic!("failed to load system cursor (system error {})", unsafe {
-                GetLastError().0
+            panic!("failed to load system cursor [{}]", unsafe {
+                GetLastError().unwrap_err()
             })
         });
 
@@ -111,7 +111,7 @@ impl Cursor {
             Ok(v) => Ok(Self { handle: v.0 }),
             Err(e) => Err(AppError::new(
                 "failed to load cursor from file",
-                unsafe { Some(GetLastError().0 as usize) },
+                unsafe { Some(usize::try_from(GetLastError().unwrap_err().code().0).unwrap()) },
                 Some(Box::new(e)),
             )),
         }
@@ -126,8 +126,8 @@ impl Cursor {
     pub fn copy(&self) -> Self {
         let cpy = unsafe { CopyImage(HANDLE(self.handle), IMAGE_CURSOR, 0, 0, IMAGE_FLAGS(0)) }
             .unwrap_or_else(|_| {
-                panic!("failed to copy image cursor (system error {})", unsafe {
-                    GetLastError().0
+                panic!("failed to copy image cursor [{}]", unsafe {
+                    GetLastError().unwrap_err()
                 })
             });
 
@@ -143,14 +143,14 @@ impl Cursor {
 pub fn set(cursor_type: &CursorType, cursor: &Cursor) {
     logf!("Setting cursor (idc: {})", idc(cursor_type).0 as isize);
 
-    let success = unsafe { SetSystemCursor(HCURSOR(cursor.handle), ocr(cursor_type)).as_bool() };
+    let success = unsafe { SetSystemCursor(HCURSOR(cursor.handle), ocr(cursor_type)).is_ok() };
 
     assert!(
         success,
         "{}",
         format!(
-            "failed to set system cursor: SetSystemCursor returned 0 (system error {:#08x})",
-            unsafe { GetLastError().0 }
+            "failed to set system cursor: SetSystemCursor returned 0 [{}]",
+            unsafe { GetLastError().unwrap_err() }
         )
     );
 }
@@ -191,13 +191,13 @@ pub fn reset() {
             None,
             SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
         )
-        .as_bool()
+        .is_ok()
     };
 
     assert!(
         success,
-        "failed to reset system cursor: SystemPerametersInfoA returned 0 (system error {:#08x})",
-        unsafe { GetLastError().0 }
+        "failed to reset system cursor: SystemPerametersInfoA returned 0 [{}]",
+        unsafe { GetLastError().unwrap_err() }
     );
 }
 

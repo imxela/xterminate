@@ -102,7 +102,7 @@ impl Tray {
                 "tray icon could not be deleted"
             );
 
-            DestroyWindow(self.hwnd);
+            DestroyWindow(self.hwnd).unwrap();
         }
     }
 
@@ -113,7 +113,7 @@ impl Tray {
 
             let wndclass = WNDCLASSEXA {
                 cbSize: u32::try_from(std::mem::size_of::<WNDCLASSEXA>()).unwrap(),
-                hInstance: GetModuleHandleA(PCSTR(std::ptr::null())).unwrap(),
+                hInstance: GetModuleHandleA(PCSTR(std::ptr::null())).unwrap().into(),
                 lpfnWndProc: Some(trayicon_input_callback),
                 lpszClassName: PCSTR(class_name.as_ptr().cast::<u8>()),
                 ..Default::default()
@@ -121,7 +121,8 @@ impl Tray {
 
             assert!(
                 RegisterClassExA(&wndclass) > 0,
-                "tray-icon window class registration failed: RegisterClassA() returned NULL (os error code {})", GetLastError().0
+                "tray-icon window class registration failed: RegisterClassA() returned NULL [{}]",
+                GetLastError().unwrap_err()
             );
 
             logf!("Creating system tray window");
@@ -142,8 +143,8 @@ impl Tray {
 
             assert!(
                 hwnd.0 > 0,
-                "trayicon window creation failed: CreateWindowExA() returned NULL (os error code {})",
-                GetLastError().0
+                "trayicon window creation failed: CreateWindowExA() returned NULL [{}]",
+                GetLastError().unwrap_err()
             );
 
             hwnd
@@ -262,9 +263,9 @@ impl Tray {
         }
         .unwrap_or_else(|_| {
             panic!(
-                "failed to load icon '{}': is the file missing or corrupt? (os error {})",
+                "failed to load icon '{}': is the file missing or corrupt? [{}]",
                 filename,
-                unsafe { GetLastError().0 }
+                unsafe { GetLastError().unwrap_err() }
             )
         });
 

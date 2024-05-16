@@ -71,11 +71,9 @@ impl Process {
             )
         }
         .unwrap_or_else(|_| {
-            panic!(
-                "failed to open target process ({}) (system error {})",
-                pid,
-                unsafe { GetLastError().0 }
-            )
+            panic!("failed to open target process ({}) [{}]", pid, unsafe {
+                GetLastError().unwrap_err()
+            })
         });
 
         // Retreive privileges required to access
@@ -126,10 +124,11 @@ impl Process {
                 logf!("Sending '{}' to window {}", method, window);
 
                 assert!(
-                    SendNotifyMessageA(HWND(window.handle()), method.to_wm(), WPARAM(0), LPARAM(0)).as_bool(),
-                    "failed to send message to window {}: SendNotifyMessageA() returned false (os error {})",
+                    SendNotifyMessageA(HWND(window.handle()), method.to_wm(), WPARAM(0), LPARAM(0))
+                        .is_ok(),
+                    "failed to send message to window {}: SendNotifyMessageA() returned false [{}]",
                     window,
-                    GetLastError().0
+                    GetLastError().unwrap_err()
                 );
             }
 
@@ -155,13 +154,11 @@ impl Process {
     pub fn terminate(&self) {
         logf!("Terminating process {}", self);
 
-        let success = unsafe { TerminateProcess(HANDLE(self.handle), ERROR_APP_HANG.0).as_bool() };
+        let success = unsafe { TerminateProcess(HANDLE(self.handle), ERROR_APP_HANG.0).is_ok() };
 
-        assert!(
-            success,
-            "failed to terminate process (system error {})",
-            unsafe { GetLastError().0 }
-        );
+        assert!(success, "failed to terminate process [{}]", unsafe {
+            GetLastError().unwrap_err()
+        });
     }
 
     /// Returns the abnsolute path to the process executable.
@@ -178,9 +175,9 @@ impl Process {
 
         assert!(
             process_name_length > 0,
-            "failed to get path for process ({}) (system error {})",
+            "failed to get path for process ({}) [{}]",
             self.id(),
-            unsafe { GetLastError().0 }
+            unsafe { GetLastError().unwrap_err() }
         );
 
         std::str::from_utf8(&buffer[..process_name_length as usize])

@@ -106,6 +106,7 @@ impl Window {
     }
 
     /// Returns a [Vec] of all top-level [Window]s.
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
     pub fn windows() -> Vec<Self> {
         let mut result: Vec<isize> = Vec::new();
@@ -114,7 +115,8 @@ impl Window {
             EnumWindows(
                 Some(Self::enum_windows_cb),
                 LPARAM(std::ptr::addr_of_mut!(result) as isize),
-            );
+            )
+            .unwrap();
         }
 
         result.iter().map(|hwnd| Self::from_handle(*hwnd)).collect()

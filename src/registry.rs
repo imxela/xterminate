@@ -1,5 +1,5 @@
 use windows::core::PCSTR;
-use windows::Win32::Foundation::{GetLastError, ERROR_SUCCESS};
+use windows::Win32::Foundation::GetLastError;
 
 use windows::Win32::System::Registry::{
     RegCloseKey, RegCreateKeyExA, RegDeleteValueA, RegOpenKeyExA, RegQueryValueExA,
@@ -95,8 +95,8 @@ pub fn set_value(root_key: HKey, subkey: &str, name: &str, value_type: ValueType
         {
             panic!(
                 "failed to set registry key: could not create or open registry key 
-            '{root_key}:{subkey}' for writing: RegCreateKeyExA() failed (os error {})",
-                GetLastError().0
+            '{root_key}:{subkey}' for writing: RegCreateKeyExA() failed [{}]",
+                GetLastError().unwrap_err()
             );
         }
 
@@ -134,15 +134,15 @@ pub fn set_value(root_key: HKey, subkey: &str, name: &str, value_type: ValueType
         {
             panic!(
                 "failed to set registry key '{root_key}\\{subkey}\\{name}' 
-            to '{value}': RegSetKeyValueA() failed (os error {})",
-                GetLastError().0
+            to '{value}': RegSetKeyValueA() failed [{}]",
+                GetLastError().unwrap_err()
             );
         }
 
         assert!(
             RegCloseKey(hkey).is_ok(),
-            "could not close registry key '{root_key}\\{subkey}': RegCloseKey() failed (os error {})",
-            GetLastError().0
+            "could not close registry key '{root_key}\\{subkey}': RegCloseKey() failed [{}]",
+            GetLastError().unwrap_err()
         );
     }
 }
@@ -170,8 +170,8 @@ pub fn delete_value(root_key: HKey, subkey: &str, name: &str) {
         {
             panic!(
                 "could not delete registry value '{root_key}\\{subkey}\\{name}': 
-            RegOpenKeyExA() (os error {})",
-                GetLastError().0
+            RegOpenKeyExA() [{}]",
+                GetLastError().unwrap_err()
             );
         }
 
@@ -190,15 +190,15 @@ pub fn delete_value(root_key: HKey, subkey: &str, name: &str) {
         {
             panic!(
                 "could not delete registry value '{root_key}\\{subkey}\\{name}': 
-            RegDeleteValueA() failed (os error {})",
-                GetLastError().0
+            RegDeleteValueA() failed [{}]",
+                GetLastError().unwrap_err()
             );
         }
 
         assert!(
             RegCloseKey(hkey).is_ok(),
-            "failed to close registry key '{root_key}\\{subkey}' (os error {})",
-            GetLastError().0
+            "failed to close registry key '{root_key}\\{subkey}' [{}]",
+            GetLastError().unwrap_err()
         );
     }
 }
@@ -233,8 +233,8 @@ pub fn exists(root_key: HKey, subkey: &str, name: Option<&str>) -> bool {
         if name.is_none() {
             assert!(
                 RegCloseKey(hkey).is_ok(),
-                "failed to close registry key '{root_key}\\{subkey}' (os error {})",
-                GetLastError().0
+                "failed to close registry key '{root_key}\\{subkey}' [{}]",
+                GetLastError().unwrap_err()
             );
 
             return true;
@@ -256,10 +256,11 @@ pub fn exists(root_key: HKey, subkey: &str, name: Option<&str>) -> bool {
 
         assert!(
             RegCloseKey(hkey).is_ok(),
-            "failed to close registry key '{root_key}\\{subkey}' (os error {})",
-            GetLastError().0
+            "failed to close registry key '{root_key}\\{subkey}' [{}]",
+            GetLastError().unwrap_err()
         );
 
-        result == ERROR_SUCCESS
+        // RegQueryValueExA will return an error if the key doesn't exist
+        result.is_ok()
     }
 }
