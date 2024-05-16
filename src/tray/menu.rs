@@ -1,4 +1,4 @@
-use std::ffi::CStr;
+use std::ffi::CString;
 
 use windows::{
     core::PCSTR,
@@ -84,18 +84,19 @@ impl TrayMenuBuilder {
             uflags |= MF_DISABLED;
         }
 
+        let c_label = CString::new(label).expect("invalid C-style string");
+        // CStr::from_bytes_with_nul(label.as_bytes())
+        //     .unwrap()
+        //     .as_ptr()
+        //     .cast::<u8>(),
+
         unsafe {
             InsertMenuA(
                 self.handle,
                 self.item_count,
                 uflags,
                 event.map_or(0, |ev| ev as usize),
-                PCSTR(
-                    CStr::from_bytes_with_nul(label.as_bytes())
-                        .unwrap()
-                        .as_ptr()
-                        .cast::<u8>(),
-                ),
+                PCSTR(c_label.as_ptr().cast::<u8>()),
             )
         };
 

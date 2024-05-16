@@ -437,6 +437,7 @@ impl crate::tray::TrayEventHandler for App {
 }
 
 /// Open xterminate's 'config.toml' file for editing in notepad.exe.
+#[allow(clippy::missing_panics_doc)]
 pub fn open_config_file() {
     use windows::core::{PCSTR, PSTR};
     use windows::Win32::Foundation::GetLastError;
@@ -445,19 +446,17 @@ pub fn open_config_file() {
         CreateProcessA, PROCESS_CREATION_FLAGS, PROCESS_INFORMATION, STARTUPINFOA,
     };
 
-    let mut c_filepath = String::from("notepad.exe ");
-    c_filepath.push_str(&config_path());
-    c_filepath.push('\0');
-
-    let c_notepad_path = "C:\\Windows\\notepad.exe\0";
+    let c_filepath =
+        std::ffi::CString::new(format!("C:\\Windows\\notepad.exe {}", config_path())).unwrap();
 
     let si = STARTUPINFOA::default();
     let mut pi = PROCESS_INFORMATION::default();
 
     unsafe {
         let result = CreateProcessA(
-            PCSTR(c_notepad_path.as_ptr()),
-            PSTR(c_filepath.as_mut_ptr()),
+            // PCSTR(c_notepad_path.as_ptr().cast::<u8>()),
+            PCSTR(std::ptr::null()),
+            PSTR(c_filepath.into_raw().cast::<u8>()),
             None,
             None,
             false,

@@ -194,40 +194,30 @@ impl Tray {
             Some("xterminate"),
         );
 
-        // let enabled_str = if registry::exists(
-        //     registry::HKey::HKeyCurrentUser,
-        //     "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
-        //     Some("xterminate"),
-        // ) {
-        //     "ON"
-        // } else {
-        //     "OFF"
-        // };
-
         let menu = menu::TrayMenu::new(self.hwnd)
-            .add_button("About xterminate...\0", Some(TrayEvent::OnMenuSelectAbout))
-            .add_button("Edit config...\0", Some(TrayEvent::OnMenuSelectOpenConfig))
+            .add_button("About xterminate...", Some(TrayEvent::OnMenuSelectAbout))
+            .add_button("Edit config...", Some(TrayEvent::OnMenuSelectOpenConfig))
             .add_separator()
             .add_button(
-                format!("Enter termination mode ({terminate_click_keybind})\0").as_str(),
+                format!("Enter termination mode ({terminate_click_keybind})").as_str(),
                 Some(TrayEvent::OnMenuSelectEnterTerminationMode),
             )
             .add_button(
-                format!("Terminate active window ({terminate_immediate_keybind})\0").as_str(),
+                format!("Terminate active window ({terminate_immediate_keybind})").as_str(),
                 None,
             )
-            .add_button("Reset cursor\0", Some(TrayEvent::OnMenuSelectResetCursor))
+            .add_button("Reset cursor", Some(TrayEvent::OnMenuSelectResetCursor))
             .add_separator()
             .add_button(
                 if autostart_enabled {
-                    "Disable autostart\0"
+                    "Disable autostart"
                 } else {
-                    "Enable autostart\0"
+                    "Enable autostart"
                 },
                 Some(TrayEvent::OnMenuSelectStartWithWindows),
             )
             .add_separator()
-            .add_button("Exit xterminate\0", Some(TrayEvent::OnMenuSelectExit))
+            .add_button("Exit xterminate", Some(TrayEvent::OnMenuSelectExit))
             .build();
 
         menu.show();
