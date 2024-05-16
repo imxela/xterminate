@@ -85,10 +85,6 @@ impl TrayMenuBuilder {
         }
 
         let c_label = CString::new(label).expect("invalid C-style string");
-        // CStr::from_bytes_with_nul(label.as_bytes())
-        //     .unwrap()
-        //     .as_ptr()
-        //     .cast::<u8>(),
 
         unsafe {
             InsertMenuA(
