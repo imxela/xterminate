@@ -188,37 +188,46 @@ impl Tray {
             .unwrap()
             .to_string();
 
-        let enabled_str = if registry::exists(
+        let autostart_enabled = registry::exists(
             registry::HKey::HKeyCurrentUser,
             "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
             Some("xterminate"),
-        ) {
-            "ON"
-        } else {
-            "OFF"
-        };
+        );
+
+        // let enabled_str = if registry::exists(
+        //     registry::HKey::HKeyCurrentUser,
+        //     "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+        //     Some("xterminate"),
+        // ) {
+        //     "ON"
+        // } else {
+        //     "OFF"
+        // };
 
         let menu = menu::TrayMenu::new(self.hwnd)
-            .add_button("Reset cursor\0", Some(TrayEvent::OnMenuSelectResetCursor))
-            .add_button("Open config...\0", Some(TrayEvent::OnMenuSelectOpenConfig))
+            .add_button("About xterminate...\0", Some(TrayEvent::OnMenuSelectAbout))
+            .add_button("Edit config...\0", Some(TrayEvent::OnMenuSelectOpenConfig))
             .add_separator()
             .add_button(
-                format!("Enter termination mode {terminate_click_keybind}\0").as_str(),
+                format!("Enter termination mode ({terminate_click_keybind})\0").as_str(),
                 Some(TrayEvent::OnMenuSelectEnterTerminationMode),
             )
             .add_button(
                 format!("Terminate active window ({terminate_immediate_keybind})\0").as_str(),
                 None,
             )
+            .add_button("Reset cursor\0", Some(TrayEvent::OnMenuSelectResetCursor))
             .add_separator()
             .add_button(
-                format!("Start with Windows ({enabled_str})\0").as_str(),
+                if autostart_enabled {
+                    "Disable autostart\0"
+                } else {
+                    "Enable autostart\0"
+                },
                 Some(TrayEvent::OnMenuSelectStartWithWindows),
             )
             .add_separator()
-            .add_button("About...\0", Some(TrayEvent::OnMenuSelectAbout))
-            .add_separator()
-            .add_button("Exit\0", Some(TrayEvent::OnMenuSelectExit))
+            .add_button("Exit xterminate\0", Some(TrayEvent::OnMenuSelectExit))
             .build();
 
         menu.show();

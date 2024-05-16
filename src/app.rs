@@ -11,7 +11,7 @@ use crate::input::{Input, KeyCode, KeyState, KeyStatus, Keybind};
 use crate::process::ExitMethod;
 use crate::registry;
 use crate::tray::{Tray, TrayEvent};
-use crate::ui::taskdialog::TaskDialog;
+use crate::ui::taskdialog::{self, TaskDialog};
 use crate::window::Window;
 use crate::{cursor, logf};
 
@@ -418,7 +418,8 @@ impl crate::tray::TrayEventHandler for App {
 
             TrayEvent::OnMenuSelectAbout => {
                 TaskDialog::new()
-                    .set_title("About")
+                    .set_title("About xterminate")
+                    .set_icon(taskdialog::TaskDialogIcon::InformationIcon)
                     .set_heading(format!("xterminate v{}", env!("CARGO_PKG_VERSION")))
                     .set_content(
                         "Easily terminate any windowed process by the press of a button.\
