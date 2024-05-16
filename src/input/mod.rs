@@ -195,8 +195,8 @@ fn process_keyboard_input(keyboard: &RAWKEYBOARD) -> Option<(KeyCode, KeyStatus)
 fn process_mouse_input(mouse: &RAWMOUSE) -> Option<(KeyCode, KeyStatus)> {
     let ri = unsafe { mouse.Anonymous.Anonymous.usButtonFlags };
 
-    let keycode = KeyCode::from_ri(u32::try_from(ri).unwrap())?;
-    let keystatus = KeyStatus::from_ri(u32::try_from(ri).unwrap())?;
+    let keycode = KeyCode::from_ri(u32::from(ri))?;
+    let keystatus = KeyStatus::from_ri(u32::from(ri))?;
 
     Some((keycode, keystatus))
 }

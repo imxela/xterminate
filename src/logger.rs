@@ -89,7 +89,6 @@ pub fn log(message: &String, file: &'static str, line: u32) {
         .expect("could not create log file directory structure");
 
     let mut log_file = std::fs::OpenOptions::new()
-        .write(true)
         .append(true)
         .create(true)
         .open(log_filepath)

@@ -56,7 +56,7 @@ pub fn display_error_dialog(human_message: &str) {
                     .as_bytes()
                     .as_ptr(),
             ),
-            PCSTR("xterminate.exe\0".as_ptr()),
+            PCSTR(c"xterminate.exe".as_ptr().cast::<u8>()),
             MB_OK | MB_ICONERROR,
         );
     }
