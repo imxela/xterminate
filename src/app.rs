@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use windows::Win32::Foundation::HANDLE;
+use windows::Win32::Foundation::{GetLastError, HANDLE};
 use windows::Win32::UI::Shell::{FOLDERID_ProgramData, SHGetKnownFolderPath, KF_FLAG_DEFAULT};
 
 use crate::config::Config;
@@ -432,28 +432,45 @@ impl crate::tray::TrayEventHandler for App {
                     .set_hyperlinks_enabled(true)
                     .display_blocking();
             }
+
+            TrayEvent::OnMenuSelectOpenLoggingDirectory => {
+                open_logging_directory();
+            }
         }
     }
 }
 
-/// Open xterminate's 'config.toml' file for editing in notepad.exe.
+/// Runs the specified executable with the given arguments passed to it.
+///
+/// # Errors
+///
+/// Will return a [`windows::core::Error`] if the executable fails to run.
+/// Make sure `executable_path` points to a valid executable.
 #[allow(clippy::missing_panics_doc)]
-pub fn open_config_file() {
+pub fn run_executable(executable_path: &str, args: &[&str]) -> Result<(), windows::core::Error> {
     use windows::core::{PCSTR, PSTR};
-    use windows::Win32::Foundation::GetLastError;
-
     use windows::Win32::System::Threading::{
         CreateProcessA, PROCESS_CREATION_FLAGS, PROCESS_INFORMATION, STARTUPINFOA,
     };
 
-    let c_filepath =
-        std::ffi::CString::new(format!("C:\\Windows\\notepad.exe {}", config_path())).unwrap();
+    let mut args_formatted = String::new();
+
+    let index = 0;
+    for arg in args {
+        if index > 0 {
+            args_formatted.push(' ');
+        }
+
+        args_formatted.push_str(arg);
+    }
+
+    let c_filepath = std::ffi::CString::new(format!("{executable_path} {args_formatted}")).unwrap();
 
     let si = STARTUPINFOA::default();
     let mut pi = PROCESS_INFORMATION::default();
 
     unsafe {
-        let result = CreateProcessA(
+        CreateProcessA(
             // PCSTR(c_notepad_path.as_ptr().cast::<u8>()),
             PCSTR(std::ptr::null()),
             PSTR(c_filepath.into_raw().cast::<u8>()),
@@ -466,14 +483,29 @@ pub fn open_config_file() {
             &si,
             &mut pi,
         )
-        .0 == 1;
+        .ok()
+    }
+}
 
-        if !result {
-            logf!(
-                "ERROR: Failed to open config file in notepad.exe (OS Error: {})",
-                GetLastError().0
-            );
-        }
+/// Open xterminate's 'config.toml' file for editing in notepad.exe.
+#[allow(clippy::missing_panics_doc)]
+pub fn open_config_file() {
+    if let Err(result) = run_executable("C:\\Windows\\notepad.exe", &[config_path().as_str()]) {
+        logf!(
+            "ERROR: failed to open config file: {result} (OS Error: {})",
+            unsafe { GetLastError().0 }
+        );
+    }
+}
+
+/// Open xterminate's logging directory in explorer.exe.
+#[allow(clippy::missing_panics_doc)]
+pub fn open_logging_directory() {
+    if let Err(result) = run_executable("C:\\Windows\\explorer.exe", &[logfiles_path().as_str()]) {
+        logf!(
+            "ERROR: failed to open logging directory: {result} (OS Error: {})",
+            unsafe { GetLastError().0 }
+        );
     }
 }
 

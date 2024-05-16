@@ -34,6 +34,7 @@ pub enum TrayEvent {
     OnMenuSelectOpenConfig = 3,
     OnMenuSelectEnterTerminationMode = 4,
     OnMenuSelectAbout = 5,
+    OnMenuSelectOpenLoggingDirectory = 6,
 }
 
 pub trait TrayEventHandler {
@@ -49,6 +50,7 @@ impl From<u16> for TrayEvent {
             3 => Self::OnMenuSelectOpenConfig,
             4 => Self::OnMenuSelectEnterTerminationMode,
             5 => Self::OnMenuSelectAbout,
+            6 => Self::OnMenuSelectOpenLoggingDirectory,
             _ => panic!("Invalid enum value '{v}'"),
         }
     }
@@ -197,6 +199,10 @@ impl Tray {
         let menu = menu::TrayMenu::new(self.hwnd)
             .add_button("About xterminate...", Some(TrayEvent::OnMenuSelectAbout))
             .add_button("Edit config...", Some(TrayEvent::OnMenuSelectOpenConfig))
+            .add_button(
+                "Open logging directory...",
+                Some(TrayEvent::OnMenuSelectOpenLoggingDirectory),
+            )
             .add_separator()
             .add_button(
                 format!("Enter termination mode ({terminate_click_keybind})").as_str(),
