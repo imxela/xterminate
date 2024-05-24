@@ -156,7 +156,7 @@ impl Process {
     /// # Panics
     ///
     /// This method panics if the internal call to [`TerminateProcess()`] returns ´false´.
-    pub fn terminate(&self) {
+    pub fn terminate(&mut self) {
         logf!("Terminating process {}", self);
 
         if !self.valid {
@@ -190,9 +190,17 @@ impl Process {
         }
 
         let mut buffer = [0u8; 256];
-
-        let process_name_length =
-            unsafe { GetModuleFileNameExA(HANDLE(self.handle()), HMODULE::default(), &mut buffer) };
+        let exe_path = PSTR::from_raw(buffer.as_mut_ptr());
+        let mut process_name_length = 256;
+        unsafe {
+            QueryFullProcessImageNameA(
+                HANDLE(self.handle()),
+                PROCESS_NAME_FORMAT(0),
+                exe_path,
+                &mut process_name_length,
+            )
+            .expect("failed to get process path");
+        }
 
         assert!(
             process_name_length > 0,
