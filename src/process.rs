@@ -1,7 +1,13 @@
-use windows::Win32::System::ProcessStatus::GetModuleFileNameExA;
+use windows::core::{PCWSTR, PSTR};
+use windows::Win32::Security::{
+    AdjustTokenPrivileges, LookupPrivilegeValueW, SE_DEBUG_NAME, SE_PRIVILEGE_ENABLED,
+    TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES,
+};
+
 use windows::Win32::System::Threading::{
-    OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_QUERY_INFORMATION,
-    PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
+    GetCurrentProcess, OpenProcess, OpenProcessToken, QueryFullProcessImageNameA, TerminateProcess,
+    WaitForSingleObject, PROCESS_NAME_FORMAT, PROCESS_QUERY_INFORMATION, PROCESS_SYNCHRONIZE,
+    PROCESS_TERMINATE, PROCESS_VM_READ,
 };
 
 use windows::Win32::Foundation::{
@@ -61,10 +67,46 @@ impl Process {
     /// This function panics if the internal call to [`OpenProcess()`] returns a [`HANDLE`] of value `0`.
     #[must_use]
     pub fn open(pid: u32) -> Self {
+        let mut token_handle = HANDLE(0);
+
+        unsafe {
+            OpenProcessToken(
+                GetCurrentProcess(),
+                TOKEN_ADJUST_PRIVILEGES,
+                &mut token_handle,
+            )
+            .expect("failed to open process token");
+
+            // Can't find any privilege specifically for terminating so
+            // I'll just use SE_DEBUG_NAME since that one gives all of them.
+
+            let mut luid = LUID::default();
+            LookupPrivilegeValueW(PCWSTR(std::ptr::null()), SE_DEBUG_NAME, &mut luid)
+                .expect("failed to lookup privilege value");
+
+            let mut token_privileges = TOKEN_PRIVILEGES {
+                PrivilegeCount: 1,
+                ..TOKEN_PRIVILEGES::default()
+            };
+
+            token_privileges.Privileges[0].Luid = luid;
+            token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+            AdjustTokenPrivileges(
+                token_handle,
+                false,
+                Some(&token_privileges),
+                u32::try_from(std::mem::size_of::<TOKEN_PRIVILEGES>()).unwrap(),
+                None,
+                None,
+            )
+            .expect("failed to adjust token privileges");
+        }
+
         let handle = unsafe {
             OpenProcess(
-                PROCESS_TERMINATE
-                    | PROCESS_SYNCHRONIZE
+                PROCESS_SYNCHRONIZE
+                    | PROCESS_VM_READ
                     | PROCESS_QUERY_INFORMATION
                     | PROCESS_TERMINATE,
                 false,
@@ -76,10 +118,6 @@ impl Process {
                 GetLastError().unwrap_err()
             })
         });
-
-        // Retreive privileges required to access
-        //  - PROCESS_QUERY_INFORMATION for GetModuleFileNameExA
-        //  - PROCESS_TERMINATE for TerminateProcess
 
         Self {
             id: pid,
