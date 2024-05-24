@@ -5,7 +5,7 @@ use windows::Win32::System::Threading::{
 };
 
 use windows::Win32::Foundation::{
-    GetLastError, ERROR_APP_HANG, HANDLE, HMODULE, HWND, LPARAM, WAIT_FAILED, WAIT_TIMEOUT, WPARAM,
+    GetLastError, ERROR_APP_HANG, HANDLE, HWND, LPARAM, LUID, WAIT_FAILED, WAIT_TIMEOUT, WPARAM,
 };
 
 use windows::Win32::UI::WindowsAndMessaging::{SendNotifyMessageA, WM_CLOSE, WM_DESTROY, WM_QUIT};
@@ -50,6 +50,7 @@ impl ExitMethod {
 pub struct Process {
     id: u32,
     handle: isize,
+    valid: bool, // true if xterminate has exited or terminated the process
 }
 
 impl Process {
@@ -83,6 +84,7 @@ impl Process {
         Self {
             id: pid,
             handle: handle.0,
+            valid: true,
         }
     }
 
@@ -142,6 +144,9 @@ impl Process {
                 return false;
             }
 
+            // Process exited successfully and no longer exists
+            self.valid = false;
+
             true
         }
     }
@@ -154,11 +159,23 @@ impl Process {
     pub fn terminate(&self) {
         logf!("Terminating process {}", self);
 
+        if !self.valid {
+            logf!(
+                "ERROR: unable to terminate process [{}] as it is no longer valid",
+                self.id()
+            );
+
+            return;
+        }
+
         let success = unsafe { TerminateProcess(HANDLE(self.handle), ERROR_APP_HANG.0).is_ok() };
 
         assert!(success, "failed to terminate process [{}]", unsafe {
             GetLastError().unwrap_err()
         });
+
+        // Process terminated successfully and is no longer valid
+        self.valid = false;
     }
 
     /// Returns the abnsolute path to the process executable.
@@ -168,6 +185,10 @@ impl Process {
     /// in an empty buffer of utf-8 characters.
     #[must_use]
     pub fn path(&self) -> String {
+        if !self.valid {
+            return "invalid process handle".to_owned();
+        }
+
         let mut buffer = [0u8; 256];
 
         let process_name_length =
@@ -193,6 +214,10 @@ impl Process {
     /// in an empty buffer of utf-8 characters.
     #[must_use]
     pub fn name(&self) -> String {
+        if !self.valid {
+            return "invalid process handle".to_owned();
+        }
+
         // Strips the absolute path and keeps only the executable filename
         let path = self.path();
 
@@ -221,6 +246,7 @@ impl std::fmt::Debug for Process {
             .field("name", &self.name())
             .field("id", &self.id)
             .field("handle", &format_args!("0x{0:08X}", self.handle))
+            .field("valid", &self.valid)
             .finish()
     }
 }
