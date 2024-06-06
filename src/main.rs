@@ -1,3 +1,4 @@
+#![allow(clippy::multiple_crate_versions)]
 #![allow(clippy::cargo_common_metadata)]
 #![allow(clippy::module_name_repetitions)]
 #![windows_subsystem = "windows"]
@@ -12,6 +13,7 @@ pub mod process;
 pub mod registry;
 pub mod tray;
 pub mod ui;
+pub mod updater;
 pub mod window;
 
 use app::App;

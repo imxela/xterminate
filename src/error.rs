@@ -101,5 +101,5 @@ fn on_panic(info: &std::panic::PanicInfo) {
         .set_heading("An unexpected error occurred in xterminate")
         .set_content(message)
         .set_icon(taskdialog::TaskDialogIcon::ErrorIcon)
-        .display_blocking();
+        .display();
 }

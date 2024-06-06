@@ -35,6 +35,8 @@ pub enum TrayEvent {
     OnMenuSelectEnterTerminationMode = 4,
     OnMenuSelectAbout = 5,
     OnMenuSelectOpenLoggingDirectory = 6,
+    OnMenuSelectCheckForUpdates = 7,
+    OnMenuSelectUpdateOnStartup = 8,
 }
 
 pub trait TrayEventHandler {
@@ -51,6 +53,8 @@ impl From<u16> for TrayEvent {
             4 => Self::OnMenuSelectEnterTerminationMode,
             5 => Self::OnMenuSelectAbout,
             6 => Self::OnMenuSelectOpenLoggingDirectory,
+            7 => Self::OnMenuSelectCheckForUpdates,
+            8 => Self::OnMenuSelectUpdateOnStartup,
             _ => panic!("Invalid enum value '{v}'"),
         }
     }
@@ -197,13 +201,23 @@ impl Tray {
             Some("xterminate"),
         );
 
+        let autoupdate_enabled = !registry::exists(
+            registry::HKey::HKeyCurrentUser,
+            "SOFTWARE\\xterminate",
+            Some("autoupdate"),
+        );
+
         let menu = menu::TrayMenu::new(self.hwnd)
             .add_button("About xterminate...", Some(TrayEvent::OnMenuSelectAbout))
-            .add_button("Edit config...", Some(TrayEvent::OnMenuSelectOpenConfig))
+            .add_button(
+                "Check for updates...",
+                Some(TrayEvent::OnMenuSelectCheckForUpdates),
+            )
             .add_button(
                 "Open logging directory...",
                 Some(TrayEvent::OnMenuSelectOpenLoggingDirectory),
             )
+            .add_button("Edit config...", Some(TrayEvent::OnMenuSelectOpenConfig))
             .add_separator()
             .add_button(
                 format!("Enter termination mode ({terminate_click_keybind})").as_str(),
@@ -222,6 +236,14 @@ impl Tray {
                     "Enable autostart"
                 },
                 Some(TrayEvent::OnMenuSelectStartWithWindows),
+            )
+            .add_button(
+                if autoupdate_enabled {
+                    "Disable update check on startup"
+                } else {
+                    "Enable update check on startup"
+                },
+                Some(TrayEvent::OnMenuSelectUpdateOnStartup),
             )
             .add_separator()
             .add_button("Exit xterminate", Some(TrayEvent::OnMenuSelectExit))

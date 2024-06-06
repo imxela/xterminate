@@ -9,11 +9,11 @@ use crate::config::Config;
 use crate::cursor::Cursor;
 use crate::input::{Input, KeyCode, KeyState, KeyStatus, Keybind};
 use crate::process::ExitMethod;
-use crate::registry;
 use crate::tray::{Tray, TrayEvent};
 use crate::ui::taskdialog::{self, TaskDialog};
 use crate::window::Window;
 use crate::{cursor, logf};
+use crate::{registry, updater};
 
 /// The path to the cursor file relative to the executable's working directory
 const CURSOR_FILENAME: &str = "cursor.cur";
@@ -77,6 +77,11 @@ impl App {
         // last exeuction.
         let autostart_enabled = Self::autostart();
         Self::set_autostart(autostart_enabled);
+
+        // Check for updates on startup only if autoupdate is enabled
+        if Self::autoupdate() {
+            Self::update_check(false);
+        }
 
         logf!("Creating input processor");
         let input = Input::create(app.clone());
@@ -251,6 +256,111 @@ impl App {
         )
     }
 
+    /// Enables or disables checking for updates when xterminate starts.
+    /// A registry entry is created to indicate when auto-updating is disabled.
+    fn set_autoupdate(enabled: bool) {
+        if enabled == Self::autoupdate() {
+            return;
+        }
+
+        // Autoupdate has been disabled if the registry entry exists
+        if enabled {
+            registry::delete_value(
+                registry::HKey::HKeyCurrentUser,
+                "SOFTWARE\\xterminate",
+                "autoupdate",
+            );
+        } else if !registry::exists(
+            registry::HKey::HKeyCurrentUser,
+            "SOFTWARE\\xterminate",
+            Some("autoupdate"),
+        ) {
+            registry::set_value(
+                registry::HKey::HKeyCurrentUser,
+                "SOFTWARE\\xterminate",
+                "autoupdate",
+                registry::ValueType::Sz,
+                "DISABLED",
+            );
+        }
+    }
+
+    /// Returns true if xterminate is set to check for updates on startup.
+    fn autoupdate() -> bool {
+        !registry::exists(
+            registry::HKey::HKeyCurrentUser,
+            "SOFTWARE\\xterminate",
+            Some("autoupdate"),
+        )
+    }
+
+    /// Runs an update-check followed by a self-update if the user agrees to updating.
+    ///
+    /// # Arguments
+    ///
+    /// * `verbose` - If no update is found and `verbose` is true, a dialog is
+    ///               displayed informing the user that they have the latest version.
+    fn update_check(verbose: bool) {
+        logf!("Checking for updates...");
+
+        if let Some(version) = crate::updater::check() {
+            logf!(
+                "A new version of xterminate was found (v{})",
+                version.version
+            );
+
+            let result = taskdialog::TaskDialog::new()
+                .set_title("Update xterminate")
+                .set_icon(taskdialog::TaskDialogIcon::InformationIcon)
+                .set_heading(format!(
+                    "Update xterminate from v{} to v{}?",
+                    env!("CARGO_PKG_VERSION"),
+                    version.version
+                ))
+                .set_content(
+                    "A new version of xterminate was found! Do you wish to download the update now?",
+                )
+                .add_button(taskdialog::TaskDialogAction::Yes)
+                .add_button(taskdialog::TaskDialogAction::No)
+                .set_verification("Do not check for updates in the future", !Self::autoupdate())
+                .display()
+                .result();
+
+            if result.verified {
+                logf!("User wishes not to be reminded of updates in the future");
+                Self::set_autoupdate(false);
+            } else {
+                Self::set_autoupdate(true);
+            }
+
+            if let taskdialog::TaskDialogAction::Yes = result.action {
+                logf!("User wants to download and install the update");
+
+                // Probably not the greatest idea but it works
+                let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
+
+                tokio_runtime.block_on(
+                    std::thread::spawn(|| async { updater::update(version).await })
+                        .join()
+                        .unwrap(),
+                );
+            } else {
+                logf!("User does not want to download the update");
+            }
+        } else {
+            logf!("No new update was found");
+
+            if verbose {
+                taskdialog::TaskDialog::new()
+                    .set_title("Up-to-date")
+                    .set_heading("You are up-to-date")
+                    .set_content("You already have the latest version of xterminate.")
+                    .display()
+                    .result();
+            }
+        }
+    }
+
     /// Forces the process associated with the specified [Window]
     /// to terminate. If `try_graceful` is true, an attempt will be
     /// made to gracefully exit the window before a termination is made.
@@ -396,7 +506,7 @@ impl crate::tray::TrayEventHandler for App {
             }
 
             TrayEvent::OnMenuSelectStartWithWindows => {
-                logf!("Setting start with Windows to '{}'", Self::autostart());
+                logf!("Setting start with Windows to '{}'", !Self::autostart());
                 Self::set_autostart(!Self::autostart());
             }
 
@@ -430,11 +540,24 @@ impl crate::tray::TrayEventHandler for App {
                         \n\nThank you for using my software! <3"
                     )
                     .set_hyperlinks_enabled(true)
-                    .display_blocking();
+                    .display();
             }
 
             TrayEvent::OnMenuSelectOpenLoggingDirectory => {
                 open_logging_directory();
+            }
+
+            TrayEvent::OnMenuSelectCheckForUpdates => {
+                Self::update_check(true);
+            }
+
+            TrayEvent::OnMenuSelectUpdateOnStartup => {
+                logf!(
+                    "Setting check for updates on startup to '{}'",
+                    !Self::autostart()
+                );
+
+                Self::set_autoupdate(!Self::autoupdate());
             }
         }
     }
