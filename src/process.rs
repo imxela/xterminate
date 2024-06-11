@@ -6,52 +6,13 @@ use windows::Win32::Security::{
 
 use windows::Win32::System::Threading::{
     GetCurrentProcess, OpenProcess, OpenProcessToken, QueryFullProcessImageNameA, TerminateProcess,
-    WaitForSingleObject, PROCESS_NAME_FORMAT, PROCESS_QUERY_INFORMATION, PROCESS_SYNCHRONIZE,
-    PROCESS_TERMINATE, PROCESS_VM_READ,
+    PROCESS_NAME_FORMAT, PROCESS_QUERY_INFORMATION, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
+    PROCESS_VM_READ,
 };
 
-use windows::Win32::Foundation::{
-    GetLastError, ERROR_APP_HANG, HANDLE, HWND, LPARAM, LUID, WAIT_FAILED, WAIT_TIMEOUT, WPARAM,
-};
-
-use windows::Win32::UI::WindowsAndMessaging::{SendNotifyMessageA, WM_CLOSE, WM_DESTROY, WM_QUIT};
+use windows::Win32::Foundation::{GetLastError, ERROR_APP_HANG, HANDLE, LUID};
 
 use crate::logf;
-use crate::window::Window;
-
-/// Used to tell [`Process::try_exit()`] which exit-method to try on a process.
-pub enum ExitMethod {
-    /// Sends [`WM_CLOSE`]
-    Close,
-
-    /// Sends [`WM_DESTROY`]
-    Destroy,
-
-    /// Sends [`WM_QUIT`]
-    Quit,
-}
-
-impl std::fmt::Display for ExitMethod {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ExitMethod::Close => write!(f, "Close"),
-            ExitMethod::Destroy => write!(f, "Destroy"),
-            ExitMethod::Quit => write!(f, "Quit"),
-        }
-    }
-}
-
-impl ExitMethod {
-    /// Returns the Win32 window-message associated with this [`ExitMethod`].
-    #[must_use]
-    pub fn to_wm(&self) -> u32 {
-        match self {
-            ExitMethod::Close => WM_CLOSE,
-            ExitMethod::Destroy => WM_DESTROY,
-            ExitMethod::Quit => WM_QUIT,
-        }
-    }
-}
 
 pub struct Process {
     id: u32,
@@ -123,69 +84,6 @@ impl Process {
             id: pid,
             handle: handle.0,
             valid: true,
-        }
-    }
-
-    /// Attempts to exit the process gracefully using the method specified.
-    /// If the specified timeout time has passed and the process has not
-    /// exited or if it the exit process encountered an error, this function
-    /// will return false. If the process exits successfully, it returns true.
-    ///
-    /// # Panics
-    ///
-    /// Panics if no window could be found or if a window-message could
-    /// not be sent to the target process' top-level window(s), i.e. the
-    /// call to [`SendNotifyMessageA()`] fails.
-    pub fn try_exit(&mut self, method: &ExitMethod, timeout_ms: u32) -> bool {
-        unsafe {
-            logf!(
-                "Trying to close process' {} windows via method '{}'",
-                self,
-                method
-            );
-
-            let result = Window::windows()
-                .into_iter()
-                .filter(|window| {
-                    // Ensure window belongs to the target process
-                    // and that the window is a top level window
-                    // (i.e. its root parent is itself) and that
-                    // it isn't a disabled window.
-                    window.process().id() == self.id() && window.is_root() && !window.is_disabled()
-                })
-                .collect::<Vec<Window>>();
-
-            assert!(
-                !result.is_empty(),
-                "could not find any windows associated with target process"
-            );
-
-            for window in result {
-                logf!("Sending '{}' to window {}", method, window);
-
-                assert!(
-                    SendNotifyMessageA(HWND(window.handle()), method.to_wm(), WPARAM(0), LPARAM(0))
-                        .is_ok(),
-                    "failed to send message to window {}: SendNotifyMessageA() returned false [{}]",
-                    window,
-                    GetLastError().unwrap_err()
-                );
-            }
-
-            let result = WaitForSingleObject(HANDLE(self.handle()), timeout_ms);
-
-            if result == WAIT_TIMEOUT {
-                logf!("Timed out!");
-                return false;
-            } else if result == WAIT_FAILED {
-                logf!("WaitForSingleObject failed, try_exit() will return false");
-                return false;
-            }
-
-            // Process exited successfully and no longer exists
-            self.valid = false;
-
-            true
         }
     }
 

@@ -1,14 +1,3 @@
-# Determines whether xterminate will attempt to
-# gracefully exit the process before forcefully
-# terminating it. The amount of time xterminate
-# waits for is determined by the 'timeout' value.
-attempt_graceful = true
-
-# Time period which xterminate waits for the
-# process to exit gracefully before forcefully
-# terminating it, in milliseconds.
-graceful_timeout = 3500
-
 # The below keybinds use Windows virtual-key codes.
 # A complete list of possible values can be found here:
 # https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes

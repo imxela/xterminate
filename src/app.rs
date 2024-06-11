@@ -8,7 +8,6 @@ use windows::Win32::UI::Shell::{FOLDERID_ProgramData, SHGetKnownFolderPath, KF_F
 use crate::config::{self, Config};
 use crate::cursor::Cursor;
 use crate::input::{Input, KeyCode, KeyState, KeyStatus, Keybind};
-use crate::process::ExitMethod;
 use crate::tray::{Tray, TrayEvent};
 use crate::ui::taskdialog::{self, TaskDialog};
 use crate::window::Window;
@@ -293,32 +292,11 @@ impl App {
     /// Forces the process associated with the specified [Window]
     /// to terminate. If `try_graceful` is true, an attempt will be
     /// made to gracefully exit the window before a termination is made.
-    fn terminate(&self, window: &mut Window, try_graceful: bool) {
-        // Divide by 3 since we try 3 different exit methods and
-        // we want the timeout to be the total waiting time.
-        let timeout = self.config.borrow().graceful_timeout / 3u32;
-
+    fn terminate(window: &mut Window) {
         let target_process = &mut window.process();
 
-        logf!("Will close process {}", target_process);
+        logf!("Will terminate process {}", target_process);
 
-        if try_graceful {
-            logf!(
-                "Attempting graceful exit methods with timeout set to {}ms",
-                timeout
-            );
-
-            if !(target_process.try_exit(&ExitMethod::Close, timeout)
-                || target_process.try_exit(&ExitMethod::Destroy, timeout)
-                || target_process.try_exit(&ExitMethod::Quit, timeout))
-            {
-                logf!("Graceful exit failed");
-            }
-        } else {
-            logf!("Graceful exit disabled ");
-        }
-
-        logf!("Terminating forcefully");
         target_process.terminate();
     }
 
@@ -356,7 +334,7 @@ impl App {
 
         let (cursor_x, cursor_y) = cursor::position();
         if let Some(window) = &mut Window::from_point(cursor_x, cursor_y) {
-            self.terminate(window, self.config.borrow().attempt_graceful);
+            Self::terminate(window);
             logf!("Terminated successfully");
         } else {
             logf!("ERROR: Failed to terminate: no window under mouse pointer");
@@ -382,7 +360,7 @@ impl App {
         logf!("Immediate termination triggered by user");
 
         if let Some(window) = &mut Window::from_foreground() {
-            self.terminate(window, self.config.borrow().attempt_graceful);
+            Self::terminate(window);
             logf!("Terminated successfully");
             return true;
         }

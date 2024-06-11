@@ -7,8 +7,6 @@ const DEFAULT_CONFIG_BYTES: &[u8] = include_bytes!("..\\res\\config.toml");
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Config {
-    pub attempt_graceful: bool,
-    pub graceful_timeout: u32,
     pub keybinds: Keybinds,
     pub compatibility: Compatibility,
 }
