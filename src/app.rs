@@ -5,7 +5,7 @@ use std::rc::Rc;
 use windows::Win32::Foundation::{GetLastError, HANDLE};
 use windows::Win32::UI::Shell::{FOLDERID_ProgramData, SHGetKnownFolderPath, KF_FLAG_DEFAULT};
 
-use crate::config::Config;
+use crate::config::{self, Config};
 use crate::cursor::Cursor;
 use crate::input::{Input, KeyCode, KeyState, KeyStatus, Keybind};
 use crate::process::ExitMethod;
@@ -18,7 +18,6 @@ use crate::{registry, updater};
 /// The path to the cursor file relative to the executable's working directory
 const CURSOR_FILENAME: &str = "cursor.cur";
 const ICON_FILENAME: &str = "icon.ico";
-const DEFAULT_CONFIG_BYTES: &[u8] = include_bytes!("..\\res\\config.toml");
 const CONFIG_FILENAME: &str = "config.toml";
 const LOGFILES_PATH: &str = "logs\\";
 
@@ -45,7 +44,7 @@ impl App {
         logf!("Creating application instance");
 
         logf!("Loading application configuration");
-        let config = Rc::new(RefCell::new(Self::load_config()));
+        let config = Rc::new(RefCell::new(config::load()));
 
         logf!(
             "Application configuration version: {}.{}.{}",
@@ -103,7 +102,7 @@ impl App {
         }
 
         logf!("Exited event loop, saving config and freeing resources");
-        Self::save_config(&app.borrow_mut().config.borrow_mut());
+        config::save(&app.borrow_mut().config.borrow_mut());
         input.borrow().unregister();
         tray.borrow().delete();
 
@@ -145,76 +144,6 @@ impl App {
         }
 
         keybind
-    }
-
-    fn load_config() -> Config {
-        let default_config = toml::from_slice::<Config>(DEFAULT_CONFIG_BYTES).unwrap();
-
-        let path = config_path();
-
-        let content = match std::fs::read(&path) {
-            Ok(v) => v,
-            Err(_e) => {
-                logf!("WARNING: No config file found, creating a default one");
-
-                if !appdata_path().exists() {
-                    std::fs::create_dir_all(appdata_path())
-                        .expect("failed to create xterminate program data directory");
-                }
-
-                // Create and read the default config
-                std::fs::write(&path, DEFAULT_CONFIG_BYTES)
-                    .expect("failed to write default config file to drive");
-
-                logf!("Config file created");
-
-                DEFAULT_CONFIG_BYTES.to_vec()
-            }
-        };
-
-        let mut config = toml::from_slice::<Config>(&content).expect("failed to parse config file");
-
-        // Check if the current and new config files are compatible, if not replace the old one.
-        if config.compatibility.version_major < default_config.compatibility.version_major
-            || config.compatibility.version_minor < default_config.compatibility.version_minor
-            || config.compatibility.version_patch < default_config.compatibility.version_patch
-        {
-            logf!(
-                "WARNING: Config file compatibility version mismatch, 
-                    replacing old config with updated default config 
-                    ({}.{}.{}) => {}.{}.{})",
-                config.compatibility.version_major,
-                config.compatibility.version_minor,
-                config.compatibility.version_patch,
-                default_config.compatibility.version_major,
-                config.compatibility.version_minor,
-                config.compatibility.version_patch
-            );
-
-            std::fs::write(&path, DEFAULT_CONFIG_BYTES)
-                .expect("failed to overwrite old config file");
-
-            config = default_config;
-
-            logf!("Config replaced");
-        }
-
-        logf!("Configuration loaded");
-        logf!("Config:\n{config:#?}");
-
-        config
-    }
-
-    fn save_config(config: &Config) {
-        logf!("Writing configuration to disk");
-
-        let path = config_path();
-
-        let content = toml::to_string_pretty::<Config>(config).expect("failed to serialize config");
-
-        std::fs::write(path, content).expect("failed to write to config file");
-
-        logf!("Configuration successfully written to disk");
     }
 
     /// Sets the autostart registry value if `enabled` is true.
