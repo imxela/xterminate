@@ -88,6 +88,12 @@ pub struct Input {
     event_handler: Rc<RefCell<dyn EventHandler>>,
 }
 
+impl Drop for Input {
+    fn drop(&mut self) {
+        self.unregister();
+    }
+}
+
 impl Input {
     /// # Panics
     /// Panics if the Windows raw input devices fail to be created, most likely

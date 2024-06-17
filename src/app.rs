@@ -34,6 +34,19 @@ pub struct App {
     keybinds: HashMap<String, Keybind>,
 }
 
+impl Drop for App {
+    fn drop(&mut self) {
+        logf!("Application dropping - saving config and freeing resources");
+
+        config::save(&self.config.borrow_mut());
+
+        // Reset cursor in case xterminate exits mid-termination
+        cursor::reset();
+
+        logf!("Goodbye");
+    }
+}
+
 impl App {
     /// Creates a new singleton instance of [`App`] and returns it.
     #[must_use]
@@ -100,12 +113,7 @@ impl App {
             tray.borrow().poll();
         }
 
-        logf!("Exited event loop, saving config and freeing resources");
-        config::save(&app.borrow_mut().config.borrow_mut());
-        input.borrow().unregister();
-        tray.borrow().delete();
-
-        logf!("Goodbye");
+        logf!("Event loop exited");
     }
 
     fn setup_keybinds(config: &mut Config) -> HashMap<String, Keybind> {

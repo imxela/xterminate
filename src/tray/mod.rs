@@ -68,6 +68,12 @@ pub struct Tray {
     keybinds: HashMap<String, Keybind>,
 }
 
+impl Drop for Tray {
+    fn drop(&mut self) {
+        self.delete();
+    }
+}
+
 impl Tray {
     pub fn create(
         icon_filename: &str,
