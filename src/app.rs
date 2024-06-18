@@ -461,7 +461,7 @@ impl crate::tray::TrayEventHandler for App {
             TrayEvent::OnMenuSelectUpdateOnStartup => {
                 logf!(
                     "Setting check for updates on startup to '{}'",
-                    !Self::autostart()
+                    !Self::autoupdate()
                 );
 
                 Self::set_autoupdate(!Self::autoupdate());
