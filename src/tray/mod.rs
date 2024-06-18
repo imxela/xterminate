@@ -30,7 +30,6 @@ use crate::{input::Keybind, logf, registry};
 pub enum TrayEvent {
     OnMenuSelectExit = 0,
     OnMenuSelectStartWithWindows = 1,
-    OnMenuSelectResetCursor = 2,
     OnMenuSelectOpenConfig = 3,
     OnMenuSelectEnterTerminationMode = 4,
     OnMenuSelectAbout = 5,
@@ -48,7 +47,6 @@ impl From<u16> for TrayEvent {
         match v {
             0 => Self::OnMenuSelectExit,
             1 => Self::OnMenuSelectStartWithWindows,
-            2 => Self::OnMenuSelectResetCursor,
             3 => Self::OnMenuSelectOpenConfig,
             4 => Self::OnMenuSelectEnterTerminationMode,
             5 => Self::OnMenuSelectAbout,
@@ -233,7 +231,6 @@ impl Tray {
                 format!("Terminate active window ({terminate_immediate_keybind})").as_str(),
                 None,
             )
-            .add_button("Reset cursor", Some(TrayEvent::OnMenuSelectResetCursor))
             .add_separator()
             .add_button(
                 if autostart_enabled {

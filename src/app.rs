@@ -425,14 +425,6 @@ impl crate::tray::TrayEventHandler for App {
                 Self::set_autostart(!Self::autostart());
             }
 
-            TrayEvent::OnMenuSelectResetCursor => {
-                if self.appstate == AppState::Active {
-                    self.appstate = AppState::Standby;
-                }
-
-                cursor::reset();
-            }
-
             TrayEvent::OnMenuSelectOpenConfig => {
                 open_config_file();
             }
