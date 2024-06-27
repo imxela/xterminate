@@ -6,7 +6,7 @@
 
 <br>
 
-<p align="center"><a href="#download">Download</a></p>
+<p align="center"><a href="#anchor-download">Download</a></p>
 
 <br>
 
@@ -16,6 +16,7 @@
 
 ---
 
+<a id='anchor-the-what'></a>
 ### The What
 
  - Terminate any unresponsive window using keyboard shortcuts
@@ -24,12 +25,14 @@
  - Optional Start-with-Windows functionality and automatic updates
  - Lightweight in both disk size and runtime resource consumption
 
+<a id='anchor-the-how'></a>
 ### The How
 
  - Terminate the currently focused window: `CTRL + ALT + F4`
  - Terminate a window by clicking on it: `CTRL + ALT + END`
  - Shortcuts can be changed in the TOML configuration file
 
+<a id='anchor-the-why'></a>
 ### The Why
 
 I created xterminate to solve a frustrating issue where, upon crashing or hanging, some full-screen windows would stay on top of all other windows while blocking input. This problem often made it impossible to use the built-in task manager to close the window, since it would display below it, even with the task manager set to be always on top.
@@ -37,6 +40,7 @@ I created xterminate to solve a frustrating issue where, upon crashing or hangin
 By relying on raw-input keyboard shortcuts, xterminate completely bypasses my issues with the task manager not working, making it much more reliable at closing unresponsive processes. As long as the system itself is responsive, xterminate can terminate any window with the simple press of a button.
 
 ---
+<a id='anchor-download'></a>
 ## Download
 
 You can download the latest pre-built xterminate binaries directly using the links below.
@@ -47,15 +51,18 @@ You can download the latest pre-built xterminate binaries directly using the lin
 If you are unsure which version to get, I recommend the more user-friendly installer option. You can read release notes or download older versions of xterminate on the <a href="https://github.com/imxela/xterminate/releases">releases page</a>.
 
 ---
+<a id='anchor-building-from-source'></a>
 ## Building from source
 
 > [!IMPORTANT]  
 > Some prior knowledge is assumed when building from source, such as basic command-line usage and knowledge of how to modify your PATH environment variable.
 
-### 1. Prerequisites<a id='prerequisites'></a>
+<a id='anhor-prerequisites'></a>
+### 1. Prerequisites
 
 Before building xterminate, download and install the [Rust programming language](https://www.rust-lang.org/tools/install), and clone this repository to a location of your choice, either by using [Git](https://git-scm.com/downloads) or by downloading the repository as a ZIP-archive from [here](https://github.com/imxela/xterminate/archive/refs/heads/main.zip). You will also need to download and install the [Null-Soft Install System](https://nsis.sourceforge.io/Download) to compile the install script, as well as add the installation directory to your PATH.
 
+<a id='anchor-building'></a>
 ### 2. Building
 
 First and foremost, navigate to a location of your choice using your terminal and clone the xterminate repository.
@@ -81,10 +88,11 @@ robocopy . .\target\release LICENSE
 
 The `xterminate.exe` executable, the `LICENSE` file, and the `res` directory make up the portable version of xterminate. As long as they are placed alongside each other in the same directory, you can run xterminate regardless of location.
 
+<a id='anchor-creating-the-installer'></a>
 ### 3. Creating the installer
 
 > [!IMPORTANT]  
-> This will only work if you added your NSIS installation directory to your PATH — see the [Building from source](#building-from-source) section and the [Prerequisites](#prerequisites) section for more information.
+> This will only work if you added your NSIS installation directory to your PATH — see the [Building from source](#anchor-building-from-source) section and the [Prerequisites](#anhor-prerequisites) section for more information.
 
 In your terminal, navigate to the root directory of the cloned repository and run the following command to compile the installer.
 
@@ -96,6 +104,7 @@ When the compilation is complete, an installer executable is created at `target\
 
 ---
 
+<a id='anchor-qa-style-information'></a>
 ## QA-style information
 
 ### Q: Why does xterminate need administrator privileges?
@@ -106,6 +115,7 @@ When the compilation is complete, an installer executable is created at `target\
 
 ---
 
+<a id='anchor-license'></a>
 ## License
 
 This software and code is licensed under the terms of the MIT license. See the [LICENSE](license) file for more information.
