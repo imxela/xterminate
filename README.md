@@ -1,93 +1,111 @@
 <br><br>
 
-<p align="center"><img src="images/logo.png?raw=true" alt="xterminate logo" border="0"></p>
+<p align="center"><img src="https://github.com/imxela/xterminate/blob/main/images/logo.png?raw=true" alt="xterminate logo" border="0"></p>
 
 **<p align="center">Easily terminate any windowed process by the press of a button</p>**
 
 <br>
 
-<p align="center"><img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExencxYjkwZjZmaXY3NWxnb3pwbHIyN2d0NmJsM3FqMHEzdnVvYjdxcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ptbmSkcn2GeRzlLjId/giphy.gif" border="0"></p>
+<p align="center"><a href="#download">Download</a></p>
 
 <br>
 
-<p align="center"><a href="https://github.com/imxela/xterminate/releases/latest/download/xterminate-setup.exe">Download</a></p>
-
-<p align="center">
-  <img src="https://img.shields.io/github/downloads/imxela/xterminate/total">
-  <img src="https://img.shields.io/github/license/imxela/xterminate">
-</p>
+<p align="center"><img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExencxYjkwZjZmaXY3NWxnb3pwbHIyN2d0NmJsM3FqMHEzdnVvYjdxcyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ptbmSkcn2GeRzlLjId/giphy.gif" border="0"></p>
 
 <br><br>
 
 ---
 
-### Usage
+### The What
 
-<p align="justify">
-  With xterminate, all you have to do to terminate unresponsive applications is press <code>CTRL+ALT+END</code> and xterminate will enter termination mode. Any window you subsequently left-click terminates instantly. No more rebooting when apps or games go haywire. Once installed, xterminate will always be on standby in the background, ready for the next time you need to terminate a misbehaving application.
-</p>
+ - Terminate any unresponsive window using keyboard shortcuts
+ - Always responsive to keyboard shortcuts thanks to using raw input
+ - An easy-to-use tray menu for configuring settings and preferences
+ - Optional Start-with-Windows functionality and automatic updates
+ - Lightweight in both disk size and runtime resource consumption
 
-<br>
+### The How
 
-**<p>Features</p>**
-  - [x] Visual feedback when entering termination mode in the form of a custom cursor
-  - [x] Graceful exit and forced termination of any windowed process
-  - [x] Global, uninterruptible input to ensure xterminate always remains responsive
-  - [x] Configurable keys and settings in a `config.toml` file
-  - [x] Optional start-with-Windows functionality
-  - [x] A neat tray-icon
-  - [x] Improved `ALT+F4`-equivalent with an added ability to terminate unresponsive windows
+ - Terminate the currently focused window: `CTRL + ALT + F4`
+ - Terminate a window by clicking on it: `CTRL + ALT + END`
+ - Shortcuts can be changed in the TOML configuration file
 
-<br>
+### The Why
 
-**<p>Default Keybinds</p>**
-  - `CTRL+ALT+END` to enter termination mode
-  - In termination mode, click `Left Mouse Button` to terminate any window
-  - In termination mode, press `ESCAPE` to leave termination mode
-  - `CTRL+ALT+F4` to terminate the current window in focus
+I created xterminate to solve a frustrating issue where, upon crashing or hanging, some full-screen windows would stay on top of all other windows while blocking input. This problem often made it impossible to use the built-in task manager to close the window, since it would display below it, even with the task manager set to be always on top.
 
-All key-binds can be changed in the `config.toml` file.
+By relying on raw-input keyboard shortcuts, xterminate completely bypasses my issues with the task manager not working, making it much more reliable at closing unresponsive processes. As long as the system itself is responsive, xterminate can terminate any window with the simple press of a button.
+
+---
+## Download
+
+You can download the latest pre-built xterminate binaries directly using the links below.
+
+ - <a href="https://github.com/imxela/xterminate/releases/latest/download/xterminate-setup.exe">Download Installer</a>
+ - <a href="https://github.com/imxela/xterminate/releases/latest/download/xterminate-portable.zip">Download Portable</a>
+
+If you are unsure which version to get, I recommend the more user-friendly installer option. You can read release notes or download older versions of xterminate on the <a href="https://github.com/imxela/xterminate/releases">releases page</a>.
+
+---
+## Building from source
+
+> [!IMPORTANT]  
+> Some prior knowledge is assumed when building from source, such as basic command-line usage and knowledge of how to modify your PATH environment variable.
+
+### 1. Prerequisites<a id='prerequisites'></a>
+
+Before building xterminate, download and install the [Rust programming language](https://www.rust-lang.org/tools/install), and clone this repository to a location of your choice, either by using [Git](https://git-scm.com/downloads) or by downloading the repository as a ZIP-archive from [here](https://github.com/imxela/xterminate/archive/refs/heads/main.zip). You will also need to download and install the [Null-Soft Install System](https://nsis.sourceforge.io/Download) to compile the install script, as well as add the installation directory to your PATH.
+
+### 2. Building
+
+First and foremost, navigate to a location of your choice using your terminal and clone the xterminate repository.
+
+```cmd
+cd %UserProfile%\Desktop
+git clone https://github.com/imxela/xterminate.git
+```
+
+Navigate into the cloned repository and run the build command to create the xterminate executable. When the build completes, the executable will be in the `xterminate-main\target\release` directory.
+
+```cmd
+cd xterminate-main
+cargo build --release
+```
+
+Next, you will need to copy the `res` directory and `LICENSE` files located in the root directory of the repository to the same directory as the xterminate executable.
+
+```cmd
+robocopy .\res .\target\release\res /E
+robocopy . .\target\release LICENSE
+```
+
+The `xterminate.exe` executable, the `LICENSE` file, and the `res` directory make up the portable version of xterminate. As long as they are placed alongside each other in the same directory, you can run xterminate regardless of location.
+
+### 3. Creating the installer
+
+> [!IMPORTANT]  
+> This will only work if you added your NSIS installation directory to your PATH — see the [Building from source](#building-from-source) section and the [Prerequisites](#prerequisites) section for more information.
+
+In your terminal, navigate to the root directory of the cloned repository and run the following command to compile the installer.
+
+```cmd
+makensis nsis\installer.nsi
+```
+
+When the compilation is complete, an installer executable is created at `target\release\xterminate-setup.exe`. Run the executable to install xterminate.
 
 ---
 
-### Why
+## QA-style information
 
-<p align="justify">
-  Some applications are very stubborn when they crash, hang, or freeze. So much so that task manager might not work. Even when set to 
-  "always on top", Task Manager sometimes still displays below unresponsive applications, making it impossible to navigate the UI and to terminate a faulty application. Since xterminate does not rely on any user interface, this becomes a non-issue.
-</p>
+### Q: Why does xterminate need administrator privileges?
+**A:** A process can only terminate other processes if it has administrator privileges. As such, xterminate requires these privileges to function.
 
----
-
-### Building from source
-If you do not want to use the <a href="https://github.com/imxela/xterminate/releases/">pre-built binaries or installer</a>, you can build xterminate from source using the instructions here.
-
-Before attempting to build xterminate, you need to [download and install Rust](https://www.rust-lang.org/tools/install).
-
-Once Rust is installed, paste this one-liner in `cmd.exe` and it will clone xterminate to your desktop and build the code for you in one go:
-
-    git clone https://github.com/imxela/xterminate.git "%UserProfile%\Desktop\xterminate-main" && cd "%UserProfile%\Desktop\xterminate-main" && build.bat
-
-Alternatively, you can clone the repo yourself to wherever you want and run the `build.bat` script manually.
-
-<p align="justify">
-  Your executable will be located at <code>xterminate-main\target\release\xterminate.exe</code> along with the resource directory (<code>\res</code>). 
-</p>
-
-Note: Make sure to always place the executable (`xterminate.exe`) and the resource directory (`/res`) in the same root directory.
+### Q: My antivirus software flags xterminate as malware — why?
+**A:** [This is a false-positive triggered by the NSIS installer](https://nsis.sourceforge.io/NSIS_False_Positives). Unfortunately, it is not something I can fix, but rest assured, xterminate is not malicious software. The code is here for everyone to see, after all. :D
 
 ---
 
-### Useful QA-style information
-**Q: Why does xterminate need to run as an administrator?**
-<br>**A:** In order for xterminate to be able to terminate another process, it needs to share the same or higher privileges. As a result, running xterminate without elevated privileges will cause it to be unable to terminate some applications.
+## License
 
-**Q: My anti-virus flags xterminate as malware, why?**
-<br>**A:** [This is a false-positive triggered by the NSIS installer](https://nsis.sourceforge.io/NSIS_False_Positives).
-
-**Q: My cursor is stuck as a red cross!**
-<br>**A:** This might happen if xterminate closes unexpectedly after pressing `CTRL+ALT+END`.
-Simply open your tray-icon menu, right-click xterminate's icon, and press _Reset cursor_ to revert back to your normal cursor.
-
-**Q: Will xterminate still work if the mouse cursor is hidden?**
-<br>**A:** Yup, it will! Just make sure your mouse cursor is _somewhere_ inside the window you want to terminate before clicking (or use `CTRL+ALT+F4` instead!).
+This software and code is licensed under the terms of the MIT license. See the [LICENSE](license) file for more information.
