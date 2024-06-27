@@ -102,15 +102,45 @@ impl App {
 
         logf!("Starting event loop");
         while app.borrow().appstate != AppState::Shutdown {
-            // The message loops for input and tray both run
-            // on the same thread so we can use WaitMessage()
-            // to block the thread until a message is receieved
-            // instead of wasting CPU time on polling constantly.
-            use windows::Win32::UI::WindowsAndMessaging::WaitMessage;
-            unsafe { WaitMessage().unwrap() };
+            use windows::Win32::UI::WindowsAndMessaging::{
+                DispatchMessageA, PeekMessageA, TranslateMessage, WaitMessage, MSG, PM_REMOVE,
+                WM_CLOSE, WM_QUIT,
+            };
 
-            input.borrow().poll();
-            tray.borrow().poll();
+            let mut msg = MSG::default();
+
+            // Check if any exit signal has been posted to any window
+            // or if the thread has recieved a QUIT signal and exit if so.
+            unsafe {
+                // Wait for a new message to prevent CPU hogging
+                WaitMessage().unwrap();
+
+                // Check if the message is an exit signal
+                while PeekMessageA(
+                    &mut msg,
+                    windows::Win32::Foundation::HWND(0),
+                    0,
+                    0,
+                    PM_REMOVE,
+                )
+                .0 != 0
+                {
+                    // If it is -- exit, otherwise poll input
+                    if msg.message == WM_CLOSE || msg.message == WM_QUIT {
+                        // Received exit signal -- exit loop and quit!
+                        logf!("Got exit signal!");
+                        app.borrow_mut().shutdown();
+                        // return;
+                    } else {
+                        // Dispatch the messages so the windows receive them
+                        TranslateMessage(&msg);
+                        DispatchMessageA(&msg);
+                    }
+
+                    input.borrow().poll();
+                    tray.borrow().poll();
+                }
+            };
         }
 
         logf!("Event loop exited");
