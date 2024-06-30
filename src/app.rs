@@ -59,9 +59,7 @@ impl App {
         let config = Rc::new(RefCell::new(config::load()));
 
         logf!(
-            "Application configuration version: {}.{}.{}",
-            config.borrow().compatibility.version_major,
-            config.borrow().compatibility.version_major,
+            "Application configuration version: {}",
             config.borrow().compatibility.version_major
         );
 
