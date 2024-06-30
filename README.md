@@ -17,6 +17,7 @@
 ---
 
 <a id='anchor-the-what'></a>
+
 ### The What
 
  - Terminate any unresponsive window using keyboard shortcuts
@@ -26,13 +27,15 @@
  - Lightweight in both disk size and runtime resource consumption
 
 <a id='anchor-the-how'></a>
+
 ### The How
 
- - Terminate the currently focused window: `CTRL + ALT + F4`
- - Terminate a window by clicking on it: `CTRL + ALT + END`
+ - Terminate the currently focused window <kbd>CTRL</kbd> + <kbd>ALT</kbd> + <kbd>F4</kbd>
+ - Terminate a window by clicking on it <kbd>CTRL</kbd> + <kbd>ALT</kbd> + <kbd>END</kbd>
  - Shortcuts can be changed in the TOML configuration file
 
 <a id='anchor-the-why'></a>
+
 ### The Why
 
 I created xterminate to solve a frustrating issue where, upon crashing or hanging, some full-screen windows would stay on top of all other windows while blocking input. This problem often made it impossible to use the built-in task manager to close the window, since it would display below it, even with the task manager set to be always on top.
