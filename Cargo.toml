@@ -3,7 +3,7 @@ name = "xterminate"
 description = "Easily terminate any windowed process by the press of a button."
 repository = "https://github.com/imxela/xterminate"
 keywords = [ "windows", "rust", "utility", "tool", "kill", "terminate", "task-kill", "alt-f4" ]
-version = "0.0.0"
+version = "2.0.0"
 edition = "2021"
 authors = ["Xela <https://github.com/imxela/>"]
 license-file = "LICENSE"
@@ -40,7 +40,8 @@ features = [
     "Win32_System_Registry",
     "Win32_System_ProcessStatus",
     "Win32_UI_Controls",
-    "Win32_Storage_FileSystem"
+    "Win32_Storage_FileSystem",
+    "Win32_System_Diagnostics_ToolHelp"
 ]
 
 [target.'cfg(windows)'.build-dependencies]
